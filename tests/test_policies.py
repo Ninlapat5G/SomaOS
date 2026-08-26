@@ -4,7 +4,7 @@ import somaos.broker.policies  # noqa: F401  registers B0-B4
 from somaos.broker.policy import POLICY_REGISTRY, build_policy
 from somaos.broker.types import MemoryItem, Observation, Query, to_view
 
-ALL_BASELINES = ["B0", "B1", "B2", "B3", "B4"]
+ALL_BASELINES = ["B0", "B1", "B2", "B3", "B4", "S"]
 
 
 def make_item(id_, tick, tokens=10, topics=(), entities=(), surprise=0.5, novelty=0.0):

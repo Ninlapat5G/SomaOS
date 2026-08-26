@@ -6,3 +6,4 @@ from somaos.broker.policies import b1_window  # noqa: F401
 from somaos.broker.policies import b2_rag  # noqa: F401
 from somaos.broker.policies import b3_summarize  # noqa: F401
 from somaos.broker.policies import b4_paging  # noqa: F401
+from somaos.broker.policies import s_soma  # noqa: F401
