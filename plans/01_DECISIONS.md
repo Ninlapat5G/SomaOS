@@ -98,3 +98,17 @@ FOCUS/AMBIENT/DORMANT ใน §8.2 เป็น **agent scheduling tier** → �
 
 **เจตนา:** จำลอง baseline ที่ละเมิด §4.3 กฎข้อ 3 — คือจุดที่ SomaOS อ้างว่าดีกว่า
 ต้องเขียน docstring บอกไว้ว่านี่คือการจำลองข้อเสียโดยตั้งใจ ไม่ใช่ bug
+
+## D-13 — strict_recall ต้องนับ coverage ผ่าน source_item_ids ด้วย (ส่วนขยายของ D-02)
+เมื่อ B3 ยุบ item เป็น summary (D-12) item เดิมจะไม่มี id ของตัวเองในระบบอีกต่อไป
+ถ้า `bundle_item_ids` นับเฉพาะ `{it.id for it in bundle.items}` เฉย ๆ B3 จะตอบ query ที่อ้างถึง
+item ที่ถูก "เก็บรักษาไว้" ใน summary (คือ id ที่อยู่ใน `retain_fraction`) ไม่ได้เลย — ทั้งที่ระบบ
+ตั้งใจให้ pointer นั้นยังใช้งานได้ (§4.3 กฎ 3 บางส่วน)
+
+จึงนิยาม (ใน `bench/metrics.py`):
+```
+bundle_item_ids = {it.id for it in bundle.items} | {sid for it in bundle.items for sid in it.source_item_ids}
+strict_recall(q) = 1 ถ้า required_item_ids(q) ⊆ bundle_item_ids  มิฉะนั้น 0
+```
+item ที่ไม่ติด `retain_fraction` (ไม่มีใน `source_item_ids` ของ summary ไหนเลย) ยังคงหายถาวรตามเจตนาของ D-12
+**หมายเหตุ:** เป็น single-level lookup (ไม่ recursive) — Phase 0 ไม่มี summary-of-summary
