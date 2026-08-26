@@ -45,6 +45,12 @@ class GeneratorConfig:
     drift_period: int = 0
     drift_active_topics: int = 4
     adversarial: bool = False
+    revision_requires_surprise: bool = False
+    """WP-13 diagnostic switch, OFF by default so every pre-registered
+    regime is byte-identical to before. When on, a fact's belief is only
+    revised by an observation the predictor did not expect -- see the
+    `surprise_driven` regime and plans/CHANGELOG_REGIMES.md."""
+    revision_surprise_floor: float = 0.5
 
     def as_dict(self) -> dict:
         return {
@@ -60,6 +66,8 @@ class GeneratorConfig:
             "burst_high_lambda": self.burst_high_lambda, "burst_low_lambda": self.burst_low_lambda,
             "drift_period": self.drift_period, "drift_active_topics": self.drift_active_topics,
             "adversarial": self.adversarial,
+            "revision_requires_surprise": self.revision_requires_surprise,
+            "revision_surprise_floor": self.revision_surprise_floor,
         }
 
 
@@ -197,7 +205,21 @@ def generate(cfg: GeneratorConfig) -> Trace:
 
             key = (entity, topic)
             is_first_sight = key not in world.facts
-            revise = is_first_sight or (rng_revise.random() < cfg.fact_revision_rate)
+            if is_first_sight:
+                revise = True
+            elif cfg.revision_requires_surprise:
+                # WP-13. In the default regimes, whether an observation
+                # becomes a fact's current evidence is an independent
+                # coin flip -- so a redundant confirmation with surprise
+                # 0.02 can become the answer key while nothing about the
+                # world actually changed. Under D-04's own definition
+                # (surprise = 1 - confidence(predictor)), a belief that
+                # changes is by construction one the predictor got
+                # wrong. This branch makes the generator say that.
+                draw = rng_revise.random()
+                revise = surprise >= cfg.revision_surprise_floor and draw < cfg.fact_revision_rate
+            else:
+                revise = rng_revise.random() < cfg.fact_revision_rate
             if revise:
                 world.upsert_fact(entity, topic, value=item_counter, item_id=item_id, tick=t)
 

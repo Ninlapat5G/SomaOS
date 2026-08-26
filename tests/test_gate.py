@@ -157,3 +157,102 @@ def test_measure_fast_path_baseline_policy_works_too():
     trace = generate(from_regime("uniform", "gate-timing-02", n_ticks=100))
     samples = measure_fast_path_ms_per_tick("B1", trace, budget_tokens=1024, seed_root="gate-timing-02")
     assert len(samples) == 100
+
+
+# --------------------------------------------------------------------------
+# WP-13: diagnostic regimes must never move a gate
+# --------------------------------------------------------------------------
+
+
+def _row(**kw):
+    base = dict(
+        policy="S", regime="uniform", seed_root="h-01", seed_split="holdout",
+        budget_tokens=4096, tau_ticks=32, strict_recall=0.5,
+        competitive_ratio=0.5, surprise_utility_spearman=0.1,
+    )
+    base.update(kw)
+    return base
+
+
+def test_surprise_driven_is_declared_diagnostic():
+    from somaos.bench.gate import DIAGNOSTIC_REGIMES
+
+    assert "surprise_driven" in DIAGNOSTIC_REGIMES
+
+
+def test_kc1_ignores_diagnostic_regimes():
+    """A regime added after seeing a failure must not be able to rescue
+    KC1, however good the numbers in it are."""
+    from somaos.bench.gate import evaluate_kc1
+
+    real = [
+        _row(policy="S", regime="uniform", seed_root=f"h-{i}", strict_recall=0.10)
+        for i in range(6)
+    ] + [
+        _row(policy="B2", regime="uniform", seed_root=f"h-{i}", strict_recall=0.90)
+        for i in range(6)
+    ]
+    rescue = [
+        _row(policy="S", regime="surprise_driven", seed_root=f"h-{i}", strict_recall=1.0)
+        for i in range(20)
+    ] + [
+        _row(policy="B2", regime="surprise_driven", seed_root=f"h-{i}", strict_recall=0.0)
+        for i in range(20)
+    ]
+    without, _ = evaluate_kc1(real)
+    with_rescue, _ = evaluate_kc1(real + rescue)
+    assert with_rescue.passed is False
+    assert abs(with_rescue.value - without.value) < 1e-9
+
+
+def test_kc4_ignores_diagnostic_regimes():
+    from somaos.bench.gate import evaluate_kc4
+
+    real = [_row(regime="uniform", seed_root=f"h-{i}", surprise_utility_spearman=0.05)
+            for i in range(6)]
+    rescue = [_row(regime="surprise_driven", seed_root=f"h-{i}",
+                    surprise_utility_spearman=0.99) for i in range(30)]
+    assert evaluate_kc4(real + rescue).passed is False
+    assert abs(evaluate_kc4(real + rescue).value - evaluate_kc4(real).value) < 1e-9
+
+
+def test_diagnostic_summary_reports_them_separately():
+    from somaos.bench.gate import diagnostic_regime_summary
+
+    rows = [_row(regime="uniform", strict_recall=0.1),
+            _row(regime="surprise_driven", policy="S", strict_recall=0.7),
+            _row(regime="surprise_driven", policy="B2", strict_recall=0.9)]
+    table = diagnostic_regime_summary(rows)
+    assert {t["policy"] for t in table} == {"S", "B2"}
+    assert all(t["regime"] == "surprise_driven" for t in table)
+
+
+# --------------------------------------------------------------------------
+# WP-14: KC3 must be decided at D-07's stated N_items = 10,000
+# --------------------------------------------------------------------------
+
+
+def test_kc3_prefers_the_d07_scale_measurement():
+    from somaos.bench.gate import evaluate_kc3
+
+    fast_natural = [0.4] * 100          # comfortable at ~300 items
+    at_scale = [18.0] * 7               # over budget at 10,000 items
+    r = evaluate_kc3(fast_natural, budget_ms=4.0, alloc_scale_ms=at_scale,
+                      natural_store_sizes=[308.0])
+    assert r.passed is False
+    assert abs(r.value - 18.0) < 1e-9
+    assert "10,000" in r.detail
+
+
+def test_kc3_falls_back_but_says_the_result_is_unproven():
+    from somaos.bench.gate import evaluate_kc3
+
+    r = evaluate_kc3([0.4] * 100, budget_ms=4.0, natural_store_sizes=[308.0])
+    assert r.passed is True
+    assert "UNDERSTATES" in r.detail and "unproven" in r.detail
+
+
+def test_kc3_with_no_samples_at_all_fails():
+    from somaos.bench.gate import evaluate_kc3
+
+    assert evaluate_kc3([], budget_ms=4.0).passed is False

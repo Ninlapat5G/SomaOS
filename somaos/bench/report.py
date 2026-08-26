@@ -12,7 +12,7 @@ import glob
 import json
 from pathlib import Path
 
-from somaos.bench.gate import evaluate_gates, phase0_verdict
+from somaos.bench.gate import diagnostic_regime_summary, evaluate_gates, phase0_verdict
 from somaos.util.hashing import canonical_json
 
 
@@ -34,11 +34,33 @@ def load_all_results(in_dir: str | Path) -> list[dict]:
 
 
 def load_all_fast_path_ms(in_dir: str | Path) -> list[float]:
+    """Per-tick fast-path samples, at whatever store size the policy
+    naturally reached. Supporting evidence for KC3, not the decision --
+    see load_all_alloc_scale_ms."""
     samples: list[float] = []
     for path in sorted(glob.glob(str(Path(in_dir) / "fastpath-*.jsonl"))):
         for row in load_jsonl(path):
             samples.extend(row.get("ms_per_tick", []))
     return samples
+
+
+def load_all_alloc_scale_ms(in_dir: str | Path) -> list[float]:
+    """Reallocation cost at D-07's stated N_items = 10,000. This is what
+    KC3 is supposed to be decided on."""
+    samples: list[float] = []
+    for path in sorted(glob.glob(str(Path(in_dir) / "fastpath-*.jsonl"))):
+        for row in load_jsonl(path):
+            samples.extend(row.get("ms_per_alloc", []))
+    return samples
+
+
+def load_natural_store_sizes(in_dir: str | Path) -> list[float]:
+    sizes: list[float] = []
+    for path in sorted(glob.glob(str(Path(in_dir) / "fastpath-*.jsonl"))):
+        for row in load_jsonl(path):
+            if "store_items" in row:
+                sizes.append(row["store_items"])
+    return sizes
 
 
 def _mean(values: list[float]) -> float | None:
@@ -148,8 +170,13 @@ def build_dev_table(rows: list[dict]) -> list[dict]:
     return table
 
 
-def build_report(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> dict:
-    gates, warnings = evaluate_gates(rows, fast_path_ms, cfg)
+def build_report(rows: list[dict], fast_path_ms: list[float], cfg: dict,
+                  *, alloc_scale_ms: list[float] | None = None,
+                  natural_store_sizes: list[float] | None = None) -> dict:
+    gates, warnings = evaluate_gates(
+        rows, fast_path_ms, cfg,
+        alloc_scale_ms=alloc_scale_ms, natural_store_sizes=natural_store_sizes,
+    )
     verdict = phase0_verdict(gates)
 
     static_warnings = [
@@ -181,6 +208,7 @@ def build_report(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> dict
             "per_regime": build_per_regime_table(rows),
             "tau_sensitivity": build_tau_sensitivity_table(rows),
             "page_faults": build_page_fault_table(rows),
+            "diagnostic_regimes": diagnostic_regime_summary(rows),
             "dev": build_dev_table(rows),
         },
         "provenance": {
@@ -240,14 +268,32 @@ def render_markdown(report: dict) -> str:
         )
     lines.append("")
 
-    lines.append("## 5. Dev-set table (NOT used to decide gates)")
+    diag = report["tables"]["diagnostic_regimes"]
+    lines.append("## 5. Diagnostic regimes (EXCLUDED from every gate)")
+    if not diag:
+        lines.append("_none in this run_")
+    else:
+        lines.append("These regimes were added after a criterion failed, and are built "
+                      "so the hypothesis holds in them. They explain a result; they never "
+                      "produce one. See plans/CHANGELOG_REGIMES.md.")
+        lines.append("")
+        lines.append("| regime | policy | strict_recall | spearman(surprise, utility) | n |")
+        lines.append("|---|---|---|---|---|")
+        for row in diag:
+            lines.append(
+                f"| {row['regime']} | {row['policy']} | {row['strict_recall_mean']:.4f} | "
+                f"{row['surprise_utility_spearman_mean']:.4f} | {row['n']} |"
+            )
+    lines.append("")
+
+    lines.append("## 6. Dev-set table (NOT used to decide gates)")
     lines.append("| policy | regime | strict_recall | n |")
     lines.append("|---|---|---|---|")
     for row in report["tables"]["dev"]:
         lines.append(f"| {row['policy']} | {row['regime']} | {row['strict_recall_mean']:.4f} | {row['n']} |")
     lines.append("")
 
-    lines.append("## 6. Reproduction")
+    lines.append("## 7. Reproduction")
     lines.append(f"- rows: {report['provenance']['n_rows']}")
     lines.append(f"- trace_ids: {', '.join(report['provenance']['trace_ids'][:5])}"
                   + (" ..." if len(report["provenance"]["trace_ids"]) > 5 else ""))
@@ -265,11 +311,15 @@ def main(argv: list[str] | None = None) -> None:
 
     rows = load_all_results(args.in_dir)
     fast_path_ms = load_all_fast_path_ms(args.in_dir)
+    alloc_scale_ms = load_all_alloc_scale_ms(args.in_dir)
+    natural_store_sizes = load_natural_store_sizes(args.in_dir)
 
     config_paths = sorted(glob.glob(str(Path(args.in_dir) / "config-*.json")))
     cfg = json.loads(Path(config_paths[-1]).read_text()) if config_paths else {}
 
-    report = build_report(rows, fast_path_ms, cfg)
+    report = build_report(rows, fast_path_ms, cfg,
+                          alloc_scale_ms=alloc_scale_ms,
+                          natural_store_sizes=natural_store_sizes)
     markdown = render_markdown(report)
 
     out_path = Path(args.out)

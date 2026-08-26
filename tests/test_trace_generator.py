@@ -169,3 +169,49 @@ def test_every_regime_generates_nonempty_trace(regime):
     n_q = sum(1 for ev in trace.events if ev.kind == "query")
     assert n_obs > 0
     assert n_q > 0
+
+
+# --------------------------------------------------------------------------
+# WP-13: revision_requires_surprise / surprise_driven
+# --------------------------------------------------------------------------
+
+
+def test_revision_requires_surprise_is_off_by_default():
+    """Every pre-registered regime must be untouched by WP-13 -- the flag
+    is a diagnostic, not a change to the exam."""
+    for regime in ["uniform", "variable", "long_gap", "bursty", "high_noise",
+                    "adversarial_flat", "topic_drift"]:
+        cfg = from_regime(regime, "wp13", n_ticks=100)
+        assert cfg.revision_requires_surprise is False, regime
+
+
+def test_surprise_driven_regime_exists_and_sets_the_flag():
+    cfg = from_regime("surprise_driven", "wp13", n_ticks=100)
+    assert cfg.revision_requires_surprise is True
+    assert 0.0 < cfg.revision_surprise_floor <= 1.0
+
+
+def test_surprise_driven_required_items_are_actually_surprising():
+    """The whole point of the regime: an item only becomes a fact's
+    evidence if the predictor did not expect it."""
+    cfg = from_regime("surprise_driven", "wp13-02", n_ticks=1200)
+    trace = generate(cfg)
+    raw = {ev.observation.item.id: ev.observation.item
+           for ev in trace.events if ev.kind == "observe"}
+    required = [raw[i] for ev in trace.events if ev.kind == "query"
+                for i in ev.query.required_item_ids if i in raw]
+    assert required, "regime produced no answerable queries"
+    first_sight = [it for it in required if it.novelty >= 1.0]
+    revised = [it for it in required if it.novelty < 1.0]
+    # First sightings are always the evidence (nothing preceded them);
+    # everything else must clear the floor.
+    for it in revised:
+        assert it.surprise >= cfg.revision_surprise_floor
+    assert first_sight or revised
+
+
+def test_surprise_driven_is_deterministic():
+    a = generate(from_regime("surprise_driven", "wp13-03", n_ticks=400))
+    b = generate(from_regime("surprise_driven", "wp13-03", n_ticks=400))
+    assert a.trace_id == b.trace_id
+    assert [e.tick for e in a.events] == [e.tick for e in b.events]

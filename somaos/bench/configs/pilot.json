@@ -1,19 +1,58 @@
 {
   "_note": "Reduced-scale pilot, NOT the full research-spike sweep in phase0.json (fewer regimes/ticks/seeds to fit one interactive session). Use phase0.json for the real Phase 0 verdict.",
-  "policies": ["B0", "B1", "B2", "B3", "B4", "S"],
-  "regimes": ["uniform", "variable", "long_gap", "high_noise", "adversarial_flat"],
-  "budget_tokens": [1024, 4096],
-  "tau_ticks": [32],
+  "policies": [
+    "B0",
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "S"
+  ],
+  "regimes": [
+    "uniform",
+    "variable",
+    "long_gap",
+    "high_noise",
+    "adversarial_flat",
+    "surprise_driven"
+  ],
+  "budget_tokens": [
+    1024,
+    4096
+  ],
+  "tau_ticks": [
+    32
+  ],
   "n_ticks": 2000,
   "seeds": {
-    "dev": ["dev-01", "dev-02"],
-    "holdout": ["h-01", "h-02", "h-03", "h-04", "h-05", "h-06", "h-07", "h-08"]
+    "dev": [
+      "dev-01",
+      "dev-02"
+    ],
+    "holdout": [
+      "h-01",
+      "h-02",
+      "h-03",
+      "h-04",
+      "h-05",
+      "h-06",
+      "h-07",
+      "h-08"
+    ]
   },
-  "opt": {"uniform": "exact_belady", "default": "upper_bound"},
+  "opt": {
+    "uniform": "exact_belady",
+    "default": "upper_bound",
+    "surprise_driven": "exact_belady"
+  },
   "cost_model": {
     "REF_LLM_CALL_MS": 800.0,
     "REF_TICK_LLM_CALLS": 0.1,
     "FAST_PATH_BUDGET_FRACTION": 0.05
   },
-  "weights_file": "somaos/bench/configs/default_weights.json"
+  "weights_file": "somaos/bench/configs/default_weights.json",
+  "_diagnostic_regimes": [
+    "surprise_driven"
+  ],
+  "_diagnostic_note": "surprise_driven is a WP-13 diagnostic regime, excluded from every kill criterion by somaos/bench/gate.py DIAGNOSTIC_REGIMES. It was added after KC4 failed and is built so the hypothesis holds in it, so it may explain a result but must never produce one. See plans/CHANGELOG_REGIMES.md."
 }

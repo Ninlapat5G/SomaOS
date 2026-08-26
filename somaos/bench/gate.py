@@ -23,6 +23,18 @@ from typing import Literal
 
 GateId = Literal["KC1", "KC2", "KC3", "KC4"]
 
+DIAGNOSTIC_REGIMES = frozenset({"surprise_driven"})
+"""Regimes that exist to explain a result, never to produce one.
+
+`surprise_driven` (WP-13) couples fact revision to surprise, which is
+the coupling the thesis assumes and the pre-registered regimes do not
+have. Running it answers "is the hypothesis wrong, or is this workload
+simply not the one the hypothesis is about?" -- a question worth an
+answer. But a regime added *after* seeing a failure, and constructed so
+the hypothesis holds in it, must never be allowed to move a gate: that
+is writing the exam after sitting it. Excluded from every criterion
+here, reported separately, and reported whichever way it comes out."""
+
 
 @dataclass(frozen=True, slots=True)
 class GateResult:
@@ -63,7 +75,8 @@ def evaluate_kc1(rows: list[dict], *, min_effect: float = 0.05) -> tuple[GateRes
     """S must beat B2 significantly at equal budget, on holdout seeds,
     excluding adversarial_flat from the decision (surprise carries no
     signal there by construction -- see WP-02 #5.1)."""
-    holdout = [r for r in rows if r["seed_split"] == "holdout"]
+    holdout = [r for r in rows if r["seed_split"] == "holdout"
+               and r["regime"] not in DIAGNOSTIC_REGIMES]
     s_by_key = {_match_key(r): r for r in holdout if r["policy"] == "S"}
     b2_by_key = {_match_key(r): r for r in holdout if r["policy"] == "B2"}
 
@@ -121,17 +134,53 @@ def evaluate_kc2(rows: list[dict], *, threshold: float = 0.7,
     )
 
 
-def evaluate_kc3(fast_path_ms: list[float], *, budget_ms: float) -> GateResult:
+def _p95(values: list[float]) -> float:
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, int(0.95 * (len(ordered) - 1)))]
+
+
+def evaluate_kc3(fast_path_ms: list[float], *, budget_ms: float,
+                  alloc_scale_ms: list[float] | None = None,
+                  natural_store_sizes: list[float] | None = None) -> GateResult:
+    """Decided at D-07's stated condition: N_items = 10,000.
+
+    The per-tick samples are taken at whatever store size the policy
+    naturally reaches, and that turned out to be ~308 items on every
+    regime -- the trace generator's universe is only
+    n_entities x n_topics = 1440 distinct pairs. So the per-tick number
+    answers an easier question than the one D-07 asks, and is reported as
+    supporting evidence rather than as the verdict. If no N=10,000
+    measurement is present, KC3 falls back to the per-tick samples and
+    says so.
+    """
+    natural = f"{_p95(fast_path_ms):.4f}" if fast_path_ms else "N/A"
+    n_store = (
+        f"~{int(sum(natural_store_sizes) / len(natural_store_sizes))}"
+        if natural_store_sizes else "unknown"
+    )
+
+    if alloc_scale_ms:
+        p95 = _p95(alloc_scale_ms)
+        return GateResult(
+            id="KC3", passed=p95 <= budget_ms, value=p95, threshold=budget_ms,
+            detail=f"p95 reallocation ms at D-07's N_items=10,000 is {p95:.4f} vs "
+                   f"budget={budget_ms:.4f} (n={len(alloc_scale_ms)}). For reference, "
+                   f"p95 per-tick at the store size the policy actually reaches "
+                   f"({n_store} items) is {natural} ms -- that is NOT the D-07 condition "
+                   "and is not what this gate is decided on.",
+        )
+
     if not fast_path_ms:
         return GateResult(id="KC3", passed=False, value=None, threshold=budget_ms,
                            detail="no fast-path timing samples provided")
-    ordered = sorted(fast_path_ms)
-    idx = min(len(ordered) - 1, int(0.95 * (len(ordered) - 1)))
-    p95 = ordered[idx]
+    p95 = _p95(fast_path_ms)
     return GateResult(
         id="KC3", passed=p95 <= budget_ms, value=p95, threshold=budget_ms,
         detail=f"p95 fast-path ms/tick={p95:.4f} vs budget={budget_ms:.4f} "
-               f"(D-07 reference cost model, n={len(ordered)} samples)",
+               f"(n={len(fast_path_ms)} samples at store size {n_store}). "
+               "NO N_items=10,000 measurement was present, so this is the fallback "
+               "path and UNDERSTATES the D-07 condition -- treat a PASS here as "
+               "unproven (D-07, WP-14).",
     )
 
 
@@ -141,7 +190,8 @@ def evaluate_kc4(rows: list[dict], *, threshold: float = 0.25) -> GateResult:
     each trace is counted once even though every policy shares a row."""
     seen: dict[tuple, float] = {}
     for r in rows:
-        if r["seed_split"] != "holdout" or r["regime"] == "adversarial_flat":
+        if (r["seed_split"] != "holdout" or r["regime"] == "adversarial_flat"
+                or r["regime"] in DIAGNOSTIC_REGIMES):
             continue
         key = (r["regime"], r["seed_root"])
         seen.setdefault(key, r["surprise_utility_spearman"])
@@ -159,7 +209,34 @@ def evaluate_kc4(rows: list[dict], *, threshold: float = 0.25) -> GateResult:
     )
 
 
-def evaluate_gates(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> tuple[list[GateResult], list[Warning_]]:
+def diagnostic_regime_summary(rows: list[dict]) -> list[dict]:
+    """Report-only view of DIAGNOSTIC_REGIMES. Never feeds a gate."""
+    out: dict[tuple, dict] = {}
+    for r in rows:
+        if r["regime"] not in DIAGNOSTIC_REGIMES:
+            continue
+        key = (r["regime"], r["policy"])
+        acc = out.setdefault(key, {"regime": r["regime"], "policy": r["policy"],
+                                    "_recall": [], "_rho": [], "n": 0})
+        acc["_recall"].append(r["strict_recall"])
+        acc["_rho"].append(r["surprise_utility_spearman"])
+        acc["n"] += 1
+    table = []
+    for key in sorted(out):
+        acc = out[key]
+        table.append({
+            "regime": acc["regime"], "policy": acc["policy"],
+            "strict_recall_mean": sum(acc["_recall"]) / len(acc["_recall"]),
+            "surprise_utility_spearman_mean": sum(acc["_rho"]) / len(acc["_rho"]),
+            "n": acc["n"],
+        })
+    return table
+
+
+def evaluate_gates(rows: list[dict], fast_path_ms: list[float], cfg: dict,
+                    *, alloc_scale_ms: list[float] | None = None,
+                    natural_store_sizes: list[float] | None = None,
+                    ) -> tuple[list[GateResult], list[Warning_]]:
     cost_model = cfg.get("cost_model", {})
     ref_ms = cost_model.get("REF_LLM_CALL_MS", 800.0)
     ref_calls = cost_model.get("REF_TICK_LLM_CALLS", 0.1)
@@ -168,7 +245,9 @@ def evaluate_gates(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> tu
 
     kc1, kc1_warnings = evaluate_kc1(rows)
     kc2 = evaluate_kc2(rows)
-    kc3 = evaluate_kc3(fast_path_ms, budget_ms=budget_ms)
+    kc3 = evaluate_kc3(fast_path_ms, budget_ms=budget_ms,
+                        alloc_scale_ms=alloc_scale_ms,
+                        natural_store_sizes=natural_store_sizes)
     kc4 = evaluate_kc4(rows)
     return [kc1, kc2, kc3, kc4], kc1_warnings
 

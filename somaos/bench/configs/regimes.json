@@ -90,5 +90,11 @@
     "drift_period": 300,
     "drift_active_topics": 4,
     "adversarial": false
+  },
+  "surprise_driven": {
+    "obs_per_tick_lambda": 3.0,
+    "token_mode": "fixed",
+    "revision_requires_surprise": true,
+    "revision_surprise_floor": 0.5
   }
 }
