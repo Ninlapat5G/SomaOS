@@ -90,6 +90,49 @@ def build_tau_sensitivity_table(rows: list[dict]) -> list[dict]:
     return table
 
 
+def build_page_fault_table(rows: list[dict]) -> list[dict]:
+    """D-14 accounting, holdout only. Exists so the failure mode that
+    forced D-14 -- a policy scoring well while answering almost entirely
+    from pointers to content it discarded -- is visible in every report
+    instead of only in an ad-hoc diagnostic."""
+    holdout = [r for r in rows if r["seed_split"] == "holdout"]
+    groups: dict[str, list[dict]] = {}
+    for r in holdout:
+        groups.setdefault(r["policy"], []).append(r)
+    table = []
+    for policy, group in sorted(groups.items()):
+        table.append({
+            "policy": policy,
+            "answered_via_pointer_rate": _mean([g.get("answered_via_pointer_rate", 0.0) for g in group]),
+            "page_fault_rate": _mean([g.get("page_fault_rate", 0.0) for g in group]),
+            "pointer_denied_rate": _mean([g.get("pointer_denied_rate", 0.0) for g in group]),
+            "tokens_per_query_mean": _mean([g["tokens_per_query"] for g in group]),
+            "effective_tokens_per_query_mean": _mean(
+                [g.get("effective_tokens_per_query", g["tokens_per_query"]) for g in group]
+            ),
+            "n": len(group),
+        })
+    return table
+
+
+def check_pointer_dependence(rows: list[dict], *, threshold: float = 0.5) -> list[dict]:
+    """Warn when a policy's score leans mostly on paged-in pointers. Not
+    a gate -- D-14 makes that path legitimate because it is now paid for
+    -- but it is the shape the D-13 loophole had, so it stays visible."""
+    out = []
+    for row in build_page_fault_table(rows):
+        rate = row["answered_via_pointer_rate"] or 0.0
+        if rate > threshold:
+            out.append({
+                "code": "POINTER_DEPENDENT",
+                "detail": f"{row['policy']} answers {rate:.1%} of its satisfied "
+                          "requirements via page fault rather than resident context. "
+                          "Legitimate under D-14 (it pays the tokens), but check "
+                          "effective_tokens_per_query before calling it a win.",
+            })
+    return out
+
+
 def build_dev_table(rows: list[dict]) -> list[dict]:
     dev = [r for r in rows if r["seed_split"] == "dev"]
     groups: dict[tuple, list[dict]] = {}
@@ -125,11 +168,13 @@ def build_report(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> dict
         "verdict": verdict,
         "gates": [dataclasses.asdict(g) for g in gates],
         "warnings": [dataclasses.asdict(w) for w in warnings]
+        + check_pointer_dependence(rows)
         + [{"code": "STATIC", "detail": d} for d in static_warnings],
         "tables": {
             "headline": build_headline_table(rows),
             "per_regime": build_per_regime_table(rows),
             "tau_sensitivity": build_tau_sensitivity_table(rows),
+            "page_faults": build_page_fault_table(rows),
             "dev": build_dev_table(rows),
         },
         "provenance": {
@@ -177,14 +222,26 @@ def render_markdown(report: dict) -> str:
         lines.append(f"| {row['tau_ticks']} | {row['strict_recall_mean']:.4f} | {row['n']} |")
     lines.append("")
 
-    lines.append("## 4. Dev-set table (NOT used to decide gates)")
+    lines.append("## 4. Page-fault accounting (D-14, holdout only)")
+    lines.append("| policy | answered via pointer | faults/query | deferred rate | tokens/query | effective tokens/query | n |")
+    lines.append("|---|---|---|---|---|---|---|")
+    for row in report["tables"]["page_faults"]:
+        lines.append(
+            f"| {row['policy']} | {row['answered_via_pointer_rate']:.4f} | "
+            f"{row['page_fault_rate']:.2f} | {row['pointer_denied_rate']:.4f} | "
+            f"{row['tokens_per_query_mean']:.1f} | "
+            f"{row['effective_tokens_per_query_mean']:.1f} | {row['n']} |"
+        )
+    lines.append("")
+
+    lines.append("## 5. Dev-set table (NOT used to decide gates)")
     lines.append("| policy | regime | strict_recall | n |")
     lines.append("|---|---|---|---|")
     for row in report["tables"]["dev"]:
         lines.append(f"| {row['policy']} | {row['regime']} | {row['strict_recall_mean']:.4f} | {row['n']} |")
     lines.append("")
 
-    lines.append("## 5. Reproduction")
+    lines.append("## 6. Reproduction")
     lines.append(f"- rows: {report['provenance']['n_rows']}")
     lines.append(f"- trace_ids: {', '.join(report['provenance']['trace_ids'][:5])}"
                   + (" ..." if len(report["provenance"]["trace_ids"]) > 5 else ""))

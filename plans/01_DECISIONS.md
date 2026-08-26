@@ -112,3 +112,78 @@ strict_recall(q) = 1 ถ้า required_item_ids(q) ⊆ bundle_item_ids  มิ�
 ```
 item ที่ไม่ติด `retain_fraction` (ไม่มีใน `source_item_ids` ของ summary ไหนเลย) ยังคงหายถาวรตามเจตนาของ D-12
 **หมายเหตุ:** เป็น single-level lookup (ไม่ recursive) — Phase 0 ไม่มี summary-of-summary
+
+## D-14 — pointer dereference ต้องจ่าย token (page fault) — **แก้ไข D-13**
+
+> สถานะ: อนุมัติแล้ว 2026-08-26 — แทนที่กฎการนับ coverage ของ D-13
+> D-13 ยังคงอยู่ในไฟล์นี้เพื่อเป็นบันทึกว่าเคยตัดสินใจอะไรไว้ และทำไมถึงต้องแก้
+
+### ปัญหาที่พบ
+
+D-13 ให้ `bundle_item_ids` รวม `source_item_ids` ด้วย **โดยไม่คิดค่าใช้จ่ายใด ๆ**
+การวินิจฉัยบน `uniform / dev-01` พบว่า:
+
+```
+ตอบถูกเพราะ item อยู่ใน context จริง :  12/163  ( 7.4%)
+ตอบถูกเพราะ pointer เฉย ๆ            : 151/163  (92.6%)
+item ขนาด 100 token แบก source_item_ids ได้ 108 ids  (≈0.93 token ต่อ id)
+```
+
+กระดานคะแนนจึงแยกไม่ออกระหว่าง "จำได้" กับ "ทิ้งของแล้วเก็บใบเสร็จไว้"
+policy ที่ทิ้งทุกอย่างแล้วเก็บแต่ id จะได้ `strict_recall = 1.000` ฟรี ๆ
+
+### กฎใหม่
+
+ยึดตาม `target_SomaOS.md` §4.1 ที่ map `Page fault → retrieval miss` อยู่แล้ว
+pointer = page ที่ไม่ resident → การใช้งานต้อง **fault กลับเข้ามา** และเสีย token เท่าขนาด raw item
+
+```
+resident  = {it.id for it in bundle.items}          # จ่ายไปแล้วตอนใส่ bundle → ฟรี
+residual  = budget_tokens − Σ(it.tokens for it in bundle.items)
+
+fault_queue = [sid  for it in bundle.items          # เรียงตามลำดับ item ใน bundle
+                    for sid in it.source_item_ids   # แล้วตามลำดับที่ policy เขียนไว้เอง
+               if sid not in resident]              # (dedupe, คงลำดับแรกที่เจอ)
+
+เดินคิวจากหัว จ่าย raw_tokens[sid] ไปเรื่อย ๆ จนกว่า residual จะไม่พอ
+เจอตัวแรกที่จ่ายไม่ไหว → หยุด ที่เหลือทั้งคิวเป็น deferred
+
+covered = resident ∪ faulted
+```
+
+`raw_tokens` มาจาก **trace** ไม่ใช่จาก state ของ policy — policy จึงกำหนดราคาของตัวเองไม่ได้
+
+### ⚠️ resolver ต้อง "มองไม่เห็นเฉลย" — จุดที่พลาดในร่างแรก
+
+ร่างแรกของ D-14 ให้ resolver รับ `required_item_ids` เข้าไปด้วย แล้ว fault เฉพาะ id
+ที่ query ต้องการ โดยเรียงจากถูกไปแพงเพื่อ "ให้ประโยชน์แก่ policy มากที่สุด"
+
+**ร่างนั้นไม่ปิดช่องโหว่เลย** — policy ที่เก็บแต่ใบเสร็จยังได้ `strict_recall = 1.000` เหมือนเดิม
+เพราะการ fault ถูกชี้เป้าด้วยเฉลย = แจก **prefetcher ที่รู้อนาคต** ให้ทุก policy ฟรี ๆ
+(ยืนยันด้วย `test_pointer_hoarder_cannot_win_end_to_end` ซึ่ง fail ตอนนั้น)
+
+ของจริงจึงต้องเป็น: **resolver ไม่รับ `required_item_ids` เลย** รับแค่ bundle
+ลำดับการ fault มาจาก**ลำดับที่ policy เขียน pointer ไว้เอง** ซึ่งคือการประกาศ priority ของมันเอง
+policy ไหนอยากได้ page ไหนกลับมา ต้องจัดลำดับให้ถูก — เหมือนระบบจริงที่ไม่มีใครรู้เฉลยล่วงหน้า
+
+หลักการเดียวกับที่ `QueryView` ไม่มีฟิลด์ `required_item_ids` ตั้งแต่แรก (D-02/WP-06)
+คือทำให้การรั่วของเฉลย **เป็นไปไม่ได้เชิงโครงสร้าง** ไม่ใช่แค่ "ระวังอย่าใช้"
+มี test คุมไว้ที่ `test_resolver_signature_cannot_see_the_answer_key`
+
+### ผลกระทบที่ตั้งใจให้เกิด
+
+- `B3` (summarize) ยังตอบผ่าน summary ได้ตามเจตนาเดิมของ D-13 — แต่ต้อง**จ่ายค่าคลายบีบอัด**
+  ซึ่งตรงกับความเป็นจริง และตรงกับ §4.3 กฎ 3 (raw ไม่ถูกทำลาย เก็บ pointer กลับได้)
+- `S` (counter-merge) เสียประโยชน์จากช่องโหว่นี้ทั้งหมด → ตัวเลขจะ**ตกลง** ซึ่งถูกต้องแล้ว
+  และเพราะ `source_item_ids` ของ `S` เรียงตามลำดับเวลาที่ merge เข้ามา (ไม่ได้เรียงตามความสำคัญ)
+  `S` จึงแทบไม่ได้อะไรจาก fault queue เลย — ซื่อสัตย์ดี เพราะ `S` ไม่เคยประกาศ priority ของ pointer ไว้
+- item ที่ไม่ติด `retain_fraction` ยังหายถาวรตาม D-12 เหมือนเดิม
+- ค่า token ที่จ่ายไปกับ page fault ถูกบวกเข้า `effective_tokens_per_query` ตาม D-06
+  (สิ่งที่ถูกส่งเข้าโมเดลจริงคือ cost จริง)
+
+### metric ใหม่ใน JSONL
+
+`page_faults`, `page_fault_rate`, `page_fault_tokens`, `page_fault_tokens_per_query`,
+`answered_via_pointer_rate`, `pointer_denied_rate`, `effective_tokens_per_query`
+
+`answered_via_pointer_rate` คือตัวเลขที่ทำให้ต้องแก้ D-13 — เก็บไว้เป็น regression guard ถาวร

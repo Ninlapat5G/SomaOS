@@ -256,6 +256,13 @@ def opt_offline(trace: Trace, *, budget_tokens: int, mode: str) -> OptResult: ..
   "thrash_indicator": 0.0,
   "encode_rate": 0.0,
   "evictions": 0,
+  "page_faults": 0,
+  "page_fault_rate": 0.0,
+  "page_fault_tokens": 0,
+  "page_fault_tokens_per_query": 0.0,
+  "answered_via_pointer_rate": 0.0,
+  "pointer_denied_rate": 0.0,
+  "effective_tokens_per_query": 0.0,
   "opt_strict_recall": 0.0,
   "opt_mode": "exact_belady",
   "competitive_ratio": 0.0,
@@ -263,4 +270,8 @@ def opt_offline(trace: Trace, *, budget_tokens: int, mode: str) -> OptResult: ..
   "config_hash": "sha256:..."
 }
 ```
+ฟิลด์กลุ่ม `page_*` / `answered_via_pointer_rate` / `effective_tokens_per_query` มาจาก **D-14**
+(pointer dereference = page fault ที่ต้องจ่าย token) — นิยามอยู่ใน `somaos/bench/coverage.py`
+`resolve_coverage()` **ห้ามรับ `required_item_ids`** เด็ดขาด (มี test คุม signature ไว้)
+
 Timing (`fast_path_ms_p50/p95`) เขียนแยกไฟล์ `runs/timing-*.jsonl` เพราะไม่ deterministic (DoD §4)

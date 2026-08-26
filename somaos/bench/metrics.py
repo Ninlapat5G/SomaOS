@@ -9,8 +9,10 @@ policy.on_query, matching WP-06 rule 2 and enforced by test_layering.py).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping
 
 import somaos.broker.policies  # noqa: F401  registers B0-B4, S into POLICY_REGISTRY
+from somaos.bench.coverage import Coverage, raw_token_map, resolve_coverage
 from somaos.bench.trace.generator import ground_truth_utility
 from somaos.broker.opt.oracle import opt_offline
 from somaos.broker.policy import build_policy
@@ -26,41 +28,42 @@ class OracleViolation(Exception):
     good (plans/HANDOFF_TO_SONNET.md, "signals that must stop you")."""
 
 
-def bundle_covered_ids(bundle: ContextBundle) -> frozenset[str]:
-    """Item ids a bundle can answer for: its own items, plus anything
-    listed in their source_item_ids (D-13 -- needed for B3's summary
-    items to ever satisfy a query for retained evidence)."""
-    ids: set[str] = set()
-    for it in bundle.items:
-        ids.add(it.id)
-        ids.update(it.source_item_ids)
-    return frozenset(ids)
+def bundle_coverage(bundle: ContextBundle, raw_tokens: Mapping[str, int]) -> Coverage:
+    """Which ids this bundle can answer for, under D-14's page-fault
+    rule. Resident items are free; pointer targets are faulted in, in
+    the order the policy laid them out, until the unspent budget runs
+    out. Takes no Query -- the answer key must not steer which pages get
+    faulted (see somaos/bench/coverage.py)."""
+    return resolve_coverage(
+        bundle.items, budget_tokens=bundle.budget_tokens, raw_tokens=raw_tokens,
+    )
 
 
-def _prefix_covered_ids(bundle: ContextBundle, k: int) -> frozenset[str]:
-    ids: set[str] = set()
-    for it in bundle.items[:k]:
-        ids.add(it.id)
-        ids.update(it.source_item_ids)
-    return frozenset(ids)
+def strict_recall_hit(query: Query, bundle: ContextBundle,
+                      raw_tokens: Mapping[str, int]) -> bool:
+    return query.required_item_ids <= bundle_coverage(bundle, raw_tokens).covered
 
 
-def strict_recall_hit(query: Query, bundle: ContextBundle) -> bool:
-    return query.required_item_ids <= bundle_covered_ids(bundle)
-
-
-def partial_recall_value(query: Query, bundle: ContextBundle) -> float:
+def partial_recall_value(query: Query, bundle: ContextBundle,
+                         raw_tokens: Mapping[str, int]) -> float:
     req = query.required_item_ids
     if not req:
         return 1.0
-    covered = bundle_covered_ids(bundle)
+    covered = bundle_coverage(bundle, raw_tokens).covered
     return len(req & covered) / len(req)
 
 
-def hit_at_k(query: Query, bundle: ContextBundle, k: int) -> bool:
+def hit_at_k(query: Query, bundle: ContextBundle, k: int,
+             raw_tokens: Mapping[str, int]) -> bool:
+    """Same rule applied to the bundle's top-k prefix -- a ranking-quality
+    measure, so the prefix pays for its own faults out of the budget the
+    prefix leaves unspent."""
     if not query.required_item_ids:
         return True
-    return query.required_item_ids <= _prefix_covered_ids(bundle, k)
+    cov = resolve_coverage(
+        bundle.items[:k], budget_tokens=bundle.budget_tokens, raw_tokens=raw_tokens,
+    )
+    return query.required_item_ids <= cov.covered
 
 
 def spearman(xs: list[float], ys: list[float]) -> float:
@@ -103,6 +106,19 @@ class RunResult:
     total_tokens: int
     hit_at_k: dict[str, float]
     stats: dict[str, float]
+    # D-14 page-fault accounting
+    page_faults: int
+    """Total pointer dereferences that were paid for, across all queries."""
+    page_fault_tokens: int
+    """Tokens those dereferences cost. Real spend on top of total_tokens."""
+    pointer_denied: int
+    """Pointer-only required ids the bundle could not afford to fault in."""
+    direct_covered: int
+    """Required ids satisfied by an item actually resident in the bundle."""
+    answered_by_fault: int
+    """Required ids satisfied only because a page fault brought them back."""
+    required_total: int
+    """Required ids seen across all queries (denominator for the rates)."""
 
 
 def run_policy_on_trace(
@@ -120,11 +136,19 @@ def run_policy_on_trace(
     policy = build_policy(policy_name)
     policy.reset(budget_tokens=budget_tokens, seed_root=seed_root, config=policy_config or {})
 
+    raw_tokens = raw_token_map(trace)
+
     n_queries = 0
     strict_hits = 0
     partial_sum = 0.0
     hitk_hits = {k: 0 for k in HIT_AT_K_VALUES}
     total_tokens = 0
+    page_faults = 0
+    answered_by_fault = 0
+    page_fault_tokens = 0
+    pointer_denied = 0
+    direct_covered = 0
+    required_total = 0
 
     for ev in trace.events:
         if ev.kind == "observe":
@@ -136,13 +160,28 @@ def run_policy_on_trace(
             if not policy.ignores_budget:
                 bundle.validate()
             n_queries += 1
-            if strict_recall_hit(ev.query, bundle):
+
+            # One coverage resolution per query, reused by every measure
+            # below -- it is the single place D-14's rule is applied.
+            cov = bundle_coverage(bundle, raw_tokens)
+            req = ev.query.required_item_ids
+            if req and req <= cov.covered:
                 strict_hits += 1
-            partial_sum += partial_recall_value(ev.query, bundle)
+            partial_sum += (len(req & cov.covered) / len(req)) if req else 1.0
+
             for k in HIT_AT_K_VALUES:
-                if hit_at_k(ev.query, bundle, k):
+                if hit_at_k(ev.query, bundle, k, raw_tokens):
                     hitk_hits[k] += 1
+
             total_tokens += bundle.tokens
+            page_faults += len(cov.faulted)
+            page_fault_tokens += cov.fault_tokens
+            pointer_denied += len(cov.deferred)
+            # Split the *answered* requirements by how they were served,
+            # which is what makes the D-13 loophole visible in the JSONL.
+            direct_covered += len(req & cov.resident)
+            answered_by_fault += len(req & cov.faulted)
+            required_total += len(req)
 
     strict_recall = strict_hits / n_queries if n_queries else 1.0
     partial_recall = partial_sum / n_queries if n_queries else 1.0
@@ -153,6 +192,9 @@ def run_policy_on_trace(
         n_queries=n_queries, strict_recall=strict_recall, partial_recall=partial_recall,
         tokens_per_query=tokens_per_query, total_tokens=total_tokens,
         hit_at_k=hit_at_k_out, stats=policy.stats(),
+        page_faults=page_faults, page_fault_tokens=page_fault_tokens,
+        pointer_denied=pointer_denied, direct_covered=direct_covered,
+        answered_by_fault=answered_by_fault, required_total=required_total,
     )
 
 
@@ -244,6 +286,22 @@ def build_metric_row(
     churn_rate = stats.get("churn_rate", 0.0)
     thrash_indicator = min(1.0, churn_rate / 10.0) * (1.0 - max(0.0, min(1.0, run.strict_recall)))
 
+    # D-14 page-fault accounting. answered_via_pointer_rate is the number
+    # that made this amendment necessary: under D-13 policy S sat at
+    # 92.6% here while paying nothing for it.
+    n_q = run.n_queries
+    page_fault_rate = (run.page_faults / n_q) if n_q else 0.0
+    page_fault_tokens_per_query = (run.page_fault_tokens / n_q) if n_q else 0.0
+    satisfied = run.direct_covered + run.answered_by_fault
+    answered_via_pointer_rate = (run.answered_by_fault / satisfied) if satisfied else 0.0
+    pointer_denied_rate = (
+        run.pointer_denied / (run.page_faults + run.pointer_denied)
+        if (run.page_faults + run.pointer_denied) else 0.0
+    )
+    effective_tokens_per_query = (
+        (run.total_tokens + run.page_fault_tokens) / n_q if n_q else 0.0
+    )
+
     config_for_hash = {
         "policy": policy_name, "regime": regime, "budget_tokens": budget_tokens,
         "tau_ticks": tau_ticks, "seed_root": seed_root, "opt_mode": opt_mode,
@@ -274,6 +332,13 @@ def build_metric_row(
         "thrash_indicator": thrash_indicator,
         "encode_rate": encode_rate,
         "evictions": stats.get("evictions", 0.0),
+        "page_faults": run.page_faults,
+        "page_fault_rate": page_fault_rate,
+        "page_fault_tokens": run.page_fault_tokens,
+        "page_fault_tokens_per_query": page_fault_tokens_per_query,
+        "answered_via_pointer_rate": answered_via_pointer_rate,
+        "pointer_denied_rate": pointer_denied_rate,
+        "effective_tokens_per_query": effective_tokens_per_query,
         "opt_strict_recall": opt.strict_recall,
         "opt_mode": opt.mode,
         "competitive_ratio": competitive_ratio,
