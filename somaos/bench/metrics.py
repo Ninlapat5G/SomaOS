@@ -8,6 +8,7 @@ policy.on_query, matching WP-06 rule 2 and enforced by test_layering.py).
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -230,6 +231,69 @@ def measure_fast_path_ms_per_tick(
         for obs in obs_by_tick.get(t, ()):
             policy.observe(obs)
         policy.on_tick(t)
+        samples.append((time.perf_counter() - start) * 1000.0)
+    return samples
+
+
+def measure_alloc_ms_at_scale(
+    trace: Trace,
+    *,
+    n_items: int,
+    budget_tokens: int,
+    tau_ticks: int,
+    weights: dict | None = None,
+    repeats: int = 7,
+) -> list[float]:
+    """Cost of one working-set reallocation with `n_items` in the store --
+    the condition D-07 actually states for KC3 ("N_items = 10,000").
+
+    The per-tick harness above cannot reach that condition: the trace
+    generator's universe is n_entities x n_topics = 1440 distinct
+    (entity, topic) pairs, and policy S encodes roughly 308 of them
+    before saturating, on every regime. So every KC3 number reported
+    before this function existed was measured at N ~ 300, not N = 10,000,
+    and understated the budgeted cost by more than an order of magnitude.
+
+    Items come from the trace itself, so tag distributions and token
+    sizes are the real ones; only the count is forced. Wall-clock, so
+    like the per-tick samples this never enters the deterministic
+    results JSONL.
+    """
+    import time
+
+    from somaos.broker.retention import RetentionWeights
+    from somaos.broker.types import ItemStat
+    from somaos.broker.workingset import WorkingSetAllocator
+
+    observed = [ev.observation.item for ev in trace.events if ev.kind == "observe"]
+    if not observed:
+        return []
+
+    candidates = []
+    for i in range(n_items):
+        src = observed[i % len(observed)]
+        item = src if i < len(observed) else dataclasses.replace(src, id=f"{src.id}__x{i}")
+        candidates.append((item, ItemStat(last_access_tick=i % max(1, trace.n_ticks),
+                                           access_count=1 + (i % 5))))
+
+    w = RetentionWeights.from_json(weights) if weights else RetentionWeights(
+        w_recency=1.0, w_frequency=0.5, w_relevance=1.5,
+        w_surprise=1.5, w_novelty=1.0, w_pinned=3.0, w_recompute=0.2,
+    )
+    allocator = WorkingSetAllocator(budget_tokens=budget_tokens, weights=w,
+                                    tau_ticks=tau_ticks, hysteresis=0.05)
+    goal_topics = frozenset(t for it, _ in candidates[:8] for t in it.topics)
+    goal_entities = frozenset(e for it, _ in candidates[:8] for e in it.entities)
+
+    now = max(1, trace.n_ticks)
+    allocator.allocate(now_tick=now, candidates=candidates,
+                       goal_topics=goal_topics, goal_entities=goal_entities)  # warm up
+
+    samples = []
+    for _ in range(repeats):
+        start = time.perf_counter()
+        allocator.allocate(now_tick=now, candidates=candidates,
+                           goal_topics=goal_topics, goal_entities=goal_entities)
         samples.append((time.perf_counter() - start) * 1000.0)
     return samples
 

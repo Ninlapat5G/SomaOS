@@ -253,3 +253,63 @@ def test_max_access_count_zero_gives_zero_frequency():
                               goal_topics=frozenset(), goal_entities=frozenset(),
                               max_access_count=0)
     assert feats.frequency == 0.0
+
+
+# --------------------------------------------------------------------------
+# WP-14: fused scoring path must be bit-identical to the reference path
+# --------------------------------------------------------------------------
+
+
+def test_score_item_matches_the_reference_path_exactly():
+    """score_item exists only to be faster. If it ever disagrees with
+    extract_features + retention_score by a single bit, the optimization
+    has changed behaviour and must be reverted, not tolerated."""
+    import random
+
+    from somaos.broker.retention import score_item
+
+    rng = random.Random(20260826)
+    for _ in range(3000):
+        item = MemoryItem(
+            id=f"i{rng.randrange(1000)}", kind="episodic",
+            tokens=rng.randint(1, 500), created_tick=0,
+            topics=tuple(f"t{rng.randrange(6)}" for _ in range(rng.randint(0, 3))),
+            entities=tuple(f"e{rng.randrange(6)}" for _ in range(rng.randint(0, 3))),
+            surprise=rng.random(), novelty=rng.choice([0.0, 1.0]),
+            pinned=rng.choice([True, False]), recompute_cost=rng.random(),
+        )
+        stat = ItemStat(last_access_tick=rng.randrange(0, 500),
+                        access_count=rng.randrange(0, 200))
+        now = stat.last_access_tick + rng.randrange(0, 500)
+        tau = rng.randint(1, 200)
+        goal_t = frozenset(f"t{rng.randrange(6)}" for _ in range(rng.randint(0, 3)))
+        goal_e = frozenset(f"e{rng.randrange(6)}" for _ in range(rng.randint(0, 3)))
+        max_ac = rng.randrange(0, 250)
+        w = RetentionWeights(*(rng.uniform(0.01, 3) for _ in range(7)))
+
+        reference = retention_score(
+            extract_features(item, stat, now_tick=now, tau_ticks=tau,
+                             goal_topics=goal_t, goal_entities=goal_e,
+                             max_access_count=max_ac),
+            w,
+        )
+        fused = score_item(item, stat, now_tick=now, tau_ticks=tau,
+                           goal_topics=goal_t, goal_entities=goal_e,
+                           max_access_count=max_ac, weights=w)
+        assert fused == reference, (item, stat, now, tau, goal_t, goal_e, max_ac, w)
+
+
+def test_score_item_rejects_the_same_inputs_as_the_reference():
+    from somaos.broker.retention import score_item
+
+    item = MemoryItem(id="i", kind="episodic", tokens=10, created_tick=0,
+                       topics=(), entities=(), surprise=0.0, novelty=0.0)
+    w = RetentionWeights(1, 1, 1, 1, 1, 1, 1)
+    with pytest.raises(ValueError):
+        score_item(item, ItemStat(last_access_tick=0), now_tick=0, tau_ticks=0,
+                   goal_topics=frozenset(), goal_entities=frozenset(),
+                   max_access_count=1, weights=w)
+    with pytest.raises(ValueError):
+        score_item(item, ItemStat(last_access_tick=10), now_tick=0, tau_ticks=32,
+                   goal_topics=frozenset(), goal_entities=frozenset(),
+                   max_access_count=1, weights=w)

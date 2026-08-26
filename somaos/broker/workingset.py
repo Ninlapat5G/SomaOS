@@ -8,6 +8,7 @@ we do not try to close it here.
 """
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
@@ -15,6 +16,7 @@ from somaos.broker.retention import (
     RetentionWeights,
     extract_features,
     retention_score,
+    score_item,
 )
 from somaos.broker.types import ItemStat, MemoryItem, Tier
 
@@ -97,14 +99,26 @@ class WorkingSetAllocator:
 
         max_access_count = max((s.access_count for _, s in candidates), default=0)
 
-        scored: list[tuple[float, MemoryItem, ItemStat]] = []
-        for item, stat in candidates:
-            score = self._score(
-                item, stat, now_tick=now_tick,
-                goal_topics=goal_topics, goal_entities=goal_entities,
-                max_access_count=max_access_count,
+        # Hot loop: one fused scoring call per candidate rather than
+        # extract_features -> RetentionFeatures -> retention_score. Same
+        # numbers, ~2x less time (WP-14). self._score stays as the
+        # readable/reference path and is what the equivalence test pins.
+        weights = self.weights
+        total_w = weights.total()
+        tau = self.tau_ticks
+        scored: list[tuple[float, MemoryItem, ItemStat]] = [
+            (
+                score_item(
+                    item, stat, now_tick=now_tick, tau_ticks=tau,
+                    goal_topics=goal_topics, goal_entities=goal_entities,
+                    max_access_count=max_access_count,
+                    weights=weights, total_weight=total_w,
+                ),
+                item,
+                stat,
             )
-            scored.append((score, item, stat))
+            for item, stat in candidates
+        ]
 
         pinned = [(s, it, st) for s, it, st in scored if it.pinned]
         unpinned = [(s, it, st) for s, it, st in scored if not it.pinned]
@@ -133,27 +147,34 @@ class WorkingSetAllocator:
             new_resident[item.id] = (s, item)
             tokens_used += item.tokens
 
+        # Unpinned residents kept sorted by (score, id) so the weakest
+        # evictable incumbent is found by a short scan from the front
+        # instead of re-sorting the whole resident set for every
+        # candidate that doesn't fit. That re-sort was 65% of allocate()
+        # at N=10,000 (WP-14 profile). Same comparison key, same tie-
+        # break, same winner -- this is a data-structure change only.
+        evictable: list[tuple[float, str]] = []
+
         for score, item, _ in unpinned_sorted:
             if item.id in new_resident:
                 continue
             if tokens_used + item.tokens <= self.budget_tokens:
                 new_resident[item.id] = (score, item)
+                bisect.insort(evictable, (score, item.id))
                 tokens_used += item.tokens
             else:
                 if item.id in prev_resident:
                     continue
-                incumbents = sorted(
-                    (
-                        (s2, iid) for iid, (s2, it2) in new_resident.items()
-                        if not it2.pinned and it2.tokens >= item.tokens
-                    ),
-                    key=lambda t: (t[0], t[1]),
-                )
-                if not incumbents:
+                weakest_score = weakest_id = None
+                for cand_score, cand_id in evictable:
+                    if new_resident[cand_id][1].tokens >= item.tokens:
+                        weakest_score, weakest_id = cand_score, cand_id
+                        break
+                if weakest_id is None:
                     continue
-                weakest_score, weakest_id = incumbents[0]
                 if score > weakest_score + self.hysteresis:
                     weakest_item = new_resident.pop(weakest_id)[1]
+                    evictable.pop(bisect.bisect_left(evictable, (weakest_score, weakest_id)))
                     tokens_used -= weakest_item.tokens
                     this_tick_evictions.append(
                         EvictionRecord(
@@ -162,6 +183,7 @@ class WorkingSetAllocator:
                         )
                     )
                     new_resident[item.id] = (score, item)
+                    bisect.insort(evictable, (score, item.id))
                     tokens_used += item.tokens
 
         resident_ids = set(new_resident.keys())

@@ -298,6 +298,10 @@ class SomaPolicy:
 
     def stats(self) -> dict[str, float]:
         out = dict(self._counters)
+        # Store size, not working-set size: eviction only moves items out
+        # of the context bundle, never out of the store. KC3's D-07
+        # condition is stated in terms of N_items, so it needs this.
+        out["store_items"] = float(len(self._items))
         if self._allocator is not None:
             out["evictions"] = float(len(self._allocator.eviction_log))
             out["churn_rate"] = self._allocator.churn_rate()

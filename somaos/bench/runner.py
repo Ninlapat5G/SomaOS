@@ -11,7 +11,11 @@ import json
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from somaos.bench.metrics import build_metric_row, measure_fast_path_ms_per_tick
+from somaos.bench.metrics import (
+    build_metric_row,
+    measure_alloc_ms_at_scale,
+    measure_fast_path_ms_per_tick,
+)
 from somaos.bench.trace.generator import from_regime, generate
 from somaos.util.hashing import canonical_json, sha256_str
 
@@ -107,6 +111,27 @@ def run_all(config: dict, *, jobs: int = 1) -> tuple[list[dict], list[dict]]:
     return results, timings_sorted
 
 
+D07_N_ITEMS = 10_000
+"""The store size D-07 states KC3 must be evaluated at."""
+
+
+def store_size(policy_name: str, trace, *, budget_tokens: int, seed_root: str,
+               policy_config: dict) -> float:
+    """How many items the policy actually ends up holding -- recorded so a
+    reader can see at what N the per-tick samples were taken."""
+    from somaos.broker.policy import build_policy
+    from somaos.broker.types import Observation
+
+    policy = build_policy(policy_name)
+    policy.reset(budget_tokens=budget_tokens, seed_root=seed_root, config=policy_config)
+    for ev in trace.events:
+        if ev.kind == "observe":
+            policy.observe(Observation(tick=ev.tick, item=ev.observation.item))
+        policy.on_tick(ev.tick)
+    stats = policy.stats()
+    return float(stats.get("store_items", stats.get("encoded", 0.0)))
+
+
 def run_fast_path_timing(config: dict, *, policy_name: str = "S") -> list[dict]:
     """KC3 (plans/01_DECISIONS.md D-07) needs raw per-tick fast-path timing
     samples, which the main results row doesn't carry (that's a whole-run
@@ -131,9 +156,31 @@ def run_fast_path_timing(config: dict, *, policy_name: str = "S") -> list[dict]:
             policy_name, trace, budget_tokens=budget, seed_root=seed_root, policy_config=policy_config,
         )
         rows.append({
+            "kind": "per_tick_natural_scale",
             "policy": policy_name, "regime": regime, "seed_root": seed_root,
             "budget_tokens": budget, "n_samples": len(samples), "ms_per_tick": samples,
+            "store_items": store_size(policy_name, trace, budget_tokens=budget,
+                                       seed_root=seed_root, policy_config=policy_config),
         })
+
+    # D-07's KC3 condition is N_items = 10,000, which the per-tick loop
+    # above never reaches: the generator's universe is
+    # n_entities x n_topics = 1440 pairs and S saturates near 308 items on
+    # every regime. Measured at natural scale, KC3 was answering a much
+    # easier question than the one it was written to ask. This row
+    # measures the stated condition directly (WP-14).
+    scale_trace = generate(from_regime(config["regimes"][0], seed_root, n_ticks=3500))
+    tau = min(config["tau_ticks"])
+    scale_samples = measure_alloc_ms_at_scale(
+        scale_trace, n_items=D07_N_ITEMS, budget_tokens=budget,
+        tau_ticks=tau, weights=weights,
+    )
+    rows.append({
+        "kind": "alloc_at_d07_scale",
+        "policy": policy_name, "regime": config["regimes"][0], "seed_root": seed_root,
+        "budget_tokens": budget, "tau_ticks": tau, "n_items": D07_N_ITEMS,
+        "n_samples": len(scale_samples), "ms_per_alloc": scale_samples,
+    })
     return rows
 
 

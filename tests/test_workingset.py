@@ -149,3 +149,48 @@ def test_allocate_performance_10k_candidates():
     # Informational: D-07 budgets 4.0ms at N=10,000 assuming a real LLM in the
     # loop. This pure-Python greedy pass is not tuned to that yet; report only.
     print(f"allocate() p95 over {len(candidates)} candidates: {p95:.3f} ms")
+
+
+def test_allocation_is_unchanged_by_the_wp14_optimizations():
+    """WP-14 replaced a per-candidate re-sort with an incrementally
+    sorted list and fused the scoring path. Both are shape changes only:
+    this pins the actual decisions against an independent re-derivation
+    of the same rule."""
+    import random
+
+    from somaos.broker.retention import extract_features, retention_score
+
+    rng = random.Random(4242)
+    weights = RetentionWeights(1.0, 0.5, 1.5, 1.5, 1.0, 3.0, 0.2)
+    items = []
+    for i in range(400):
+        items.append((
+            MemoryItem(id=f"i{i:04d}", kind="episodic", tokens=rng.randint(20, 300),
+                        created_tick=i, topics=(f"t{i % 7}",), entities=(f"e{i % 11}",),
+                        surprise=rng.random(), novelty=float(rng.random() < 0.2)),
+            ItemStat(last_access_tick=rng.randrange(0, 400),
+                     access_count=rng.randrange(0, 30)),
+        ))
+    goal_t, goal_e = frozenset({"t1", "t3"}), frozenset({"e2"})
+    now = 400
+
+    alloc = WorkingSetAllocator(budget_tokens=2048, weights=weights,
+                                tau_ticks=32, hysteresis=0.0)
+    result = alloc.allocate(now_tick=now, candidates=items,
+                            goal_topics=goal_t, goal_entities=goal_e)
+
+    # Re-derive with the plain reference scorer and a plain greedy pass.
+    max_ac = max(s.access_count for _, s in items)
+    scored = [
+        (retention_score(extract_features(it, st, now_tick=now, tau_ticks=32,
+                                          goal_topics=goal_t, goal_entities=goal_e,
+                                          max_access_count=max_ac), weights), it)
+        for it, st in items
+    ]
+    expected, used = [], 0
+    for score, it in sorted(scored, key=lambda e: (-(e[0] / e[1].tokens), e[1].id)):
+        if used + it.tokens <= 2048:
+            expected.append(it.id)
+            used += it.tokens
+    assert set(result.resident) == set(expected)
+    assert result.tokens_used == used
