@@ -1,0 +1,147 @@
+[
+  {
+    "name": "baseline",
+    "item_topics": [
+      "t1",
+      "t2"
+    ],
+    "item_entities": [
+      "e1"
+    ],
+    "surprise": 0.5,
+    "novelty": 0.0,
+    "pinned": false,
+    "recompute_cost": 0.0,
+    "last_access_tick": 0,
+    "access_count": 3,
+    "now_tick": 32,
+    "tau_ticks": 32,
+    "goal_topics": [
+      "t1"
+    ],
+    "goal_entities": [],
+    "max_access_count": 10,
+    "weights": {
+      "w_recency": 1,
+      "w_frequency": 1,
+      "w_relevance": 1,
+      "w_surprise": 1,
+      "w_novelty": 1,
+      "w_pinned": 1,
+      "w_recompute": 1
+    },
+    "expected_score": 0.24942987054388827
+  },
+  {
+    "name": "pinned_dominant",
+    "item_topics": [
+      "t3"
+    ],
+    "item_entities": [],
+    "surprise": 0.0,
+    "novelty": 0.0,
+    "pinned": true,
+    "recompute_cost": 0.0,
+    "last_access_tick": 0,
+    "access_count": 0,
+    "now_tick": 1000,
+    "tau_ticks": 32,
+    "goal_topics": [],
+    "goal_entities": [],
+    "max_access_count": 10,
+    "weights": {
+      "w_recency": 1,
+      "w_frequency": 1,
+      "w_relevance": 1,
+      "w_surprise": 1,
+      "w_novelty": 1,
+      "w_pinned": 10,
+      "w_recompute": 1
+    },
+    "expected_score": 0.6250000000000017
+  },
+  {
+    "name": "surprise_only",
+    "item_topics": [],
+    "item_entities": [],
+    "surprise": 0.9,
+    "novelty": 0.1,
+    "pinned": false,
+    "recompute_cost": 0.0,
+    "last_access_tick": 0,
+    "access_count": 0,
+    "now_tick": 0,
+    "tau_ticks": 32,
+    "goal_topics": [],
+    "goal_entities": [],
+    "max_access_count": 10,
+    "weights": {
+      "w_recency": 0,
+      "w_frequency": 0,
+      "w_relevance": 0,
+      "w_surprise": 1,
+      "w_novelty": 0,
+      "w_pinned": 0,
+      "w_recompute": 0
+    },
+    "expected_score": 0.9
+  },
+  {
+    "name": "fresh_item_no_goal",
+    "item_topics": [
+      "a"
+    ],
+    "item_entities": [
+      "b"
+    ],
+    "surprise": 0.2,
+    "novelty": 0.0,
+    "pinned": false,
+    "recompute_cost": 0.3,
+    "last_access_tick": 10,
+    "access_count": 1,
+    "now_tick": 10,
+    "tau_ticks": 8,
+    "goal_topics": [],
+    "goal_entities": [],
+    "max_access_count": 20,
+    "weights": {
+      "w_recency": 2,
+      "w_frequency": 1,
+      "w_relevance": 1,
+      "w_surprise": 1,
+      "w_novelty": 1,
+      "w_pinned": 1,
+      "w_recompute": 1
+    },
+    "expected_score": 0.34095878108711913
+  },
+  {
+    "name": "high_frequency",
+    "item_topics": [
+      "x"
+    ],
+    "item_entities": [],
+    "surprise": 0.0,
+    "novelty": 0.0,
+    "pinned": false,
+    "recompute_cost": 0.0,
+    "last_access_tick": 0,
+    "access_count": 500,
+    "now_tick": 0,
+    "tau_ticks": 32,
+    "goal_topics": [],
+    "goal_entities": [],
+    "max_access_count": 500,
+    "weights": {
+      "w_recency": 0,
+      "w_frequency": 1,
+      "w_relevance": 0,
+      "w_surprise": 0,
+      "w_novelty": 0,
+      "w_pinned": 0,
+      "w_recompute": 0
+    },
+    "expected_score": 1.0
+  }
+]

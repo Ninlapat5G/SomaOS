@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "somaos"
+version = "0.0.0"
+description = "SomaOS Phase 0 — memory policy spike"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["somaos*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "perf: performance timing tests (not deterministic, informational)",
+]
