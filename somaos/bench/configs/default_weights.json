@@ -1,0 +1,9 @@
+{
+  "w_recency": 1.0,
+  "w_frequency": 0.5,
+  "w_relevance": 1.5,
+  "w_surprise": 1.5,
+  "w_novelty": 1.0,
+  "w_pinned": 3.0,
+  "w_recompute": 0.2
+}

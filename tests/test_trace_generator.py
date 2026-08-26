@@ -4,36 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from somaos.bench.metrics import spearman as _spearman
 from somaos.bench.trace.generator import GeneratorConfig, from_regime, generate, ground_truth_utility
 
 REGIMES = ["uniform", "variable", "long_gap", "bursty", "high_noise", "adversarial_flat", "topic_drift"]
-
-
-def _spearman(xs, ys):
-    """Manual Spearman rank correlation (stdlib only, no scipy dependency)."""
-    def rank(values):
-        order = sorted(range(len(values)), key=lambda i: values[i])
-        ranks = [0.0] * len(values)
-        i = 0
-        while i < len(order):
-            j = i
-            while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
-                j += 1
-            avg_rank = (i + j) / 2.0 + 1.0
-            for k in range(i, j + 1):
-                ranks[order[k]] = avg_rank
-            i = j + 1
-        return ranks
-
-    rx, ry = rank(xs), rank(ys)
-    n = len(xs)
-    mean_rx, mean_ry = sum(rx) / n, sum(ry) / n
-    cov = sum((a - mean_rx) * (b - mean_ry) for a, b in zip(rx, ry))
-    var_x = sum((a - mean_rx) ** 2 for a in rx)
-    var_y = sum((b - mean_ry) ** 2 for b in ry)
-    if var_x == 0 or var_y == 0:
-        return 0.0
-    return cov / (var_x ** 0.5 * var_y ** 0.5)
 
 
 def small_cfg(regime, seed_root="test-01", n_ticks=800):

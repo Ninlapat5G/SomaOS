@@ -1,0 +1,13 @@
+{
+  "policies": ["B0", "B1", "B2", "S"],
+  "regimes": ["uniform", "high_noise"],
+  "budget_tokens": [2048],
+  "tau_ticks": [32],
+  "n_ticks": 400,
+  "seeds": {
+    "dev": ["dev-01"],
+    "holdout": ["h-01"]
+  },
+  "opt": {"uniform": "exact_belady", "default": "upper_bound"},
+  "weights_file": "somaos/bench/configs/default_weights.json"
+}

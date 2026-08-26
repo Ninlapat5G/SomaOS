@@ -1,0 +1,18 @@
+{
+  "policies": ["B0", "B1", "B2", "B3", "B4", "S"],
+  "regimes": ["uniform", "variable", "long_gap", "bursty", "high_noise", "adversarial_flat", "topic_drift"],
+  "budget_tokens": [1024, 2048, 4096, 8192],
+  "tau_ticks": [8, 32, 128],
+  "n_ticks": 5000,
+  "seeds": {
+    "dev": ["dev-01", "dev-02", "dev-03"],
+    "holdout": ["h-01", "h-02", "h-03", "h-04", "h-05", "h-06", "h-07", "h-08"]
+  },
+  "opt": {"uniform": "exact_belady", "default": "upper_bound"},
+  "cost_model": {
+    "REF_LLM_CALL_MS": 800.0,
+    "REF_TICK_LLM_CALLS": 0.1,
+    "FAST_PATH_BUDGET_FRACTION": 0.05
+  },
+  "weights_file": "somaos/bench/configs/default_weights.json"
+}

@@ -9,6 +9,7 @@ No LLM, no consolidation -- that is Phase 5's slow path, not this one.
 from __future__ import annotations
 
 import collections
+import dataclasses
 from typing import Mapping
 
 from somaos.broker.policy import register_policy
@@ -154,6 +155,18 @@ class SomaPolicy:
             stat = self._stats_by_id[nearest]
             stat.access_count += 1
             stat.last_access_tick = obs.tick
+            # This observation isn't stored as its own item (that's the point
+            # of the counter -- confirmation doesn't need a new episode), but
+            # it must still be *recoverable*: fold its id into the absorbing
+            # item's source_item_ids so a query asking for exactly this id
+            # can still be satisfied by the item that now represents it
+            # (D-13's coverage rule; mirrors what B3's summary items do).
+            # MemoryItem is frozen, so this is a replace-in-place by id, not
+            # a mutation of the object a caller might be holding a reference to.
+            absorbing = self._items[nearest]
+            self._items[nearest] = dataclasses.replace(
+                absorbing, source_item_ids=absorbing.source_item_ids + (item.id,)
+            )
             self._counters["counter_merged"] += 1
             return EncodeDecision(encoded=False, reason="low_surprise_counter", counter_delta=1)
 
