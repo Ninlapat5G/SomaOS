@@ -11,7 +11,7 @@ import json
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from somaos.bench.metrics import build_metric_row
+from somaos.bench.metrics import build_metric_row, measure_fast_path_ms_per_tick
 from somaos.bench.trace.generator import from_regime, generate
 from somaos.util.hashing import canonical_json, sha256_str
 
@@ -107,6 +107,46 @@ def run_all(config: dict, *, jobs: int = 1) -> tuple[list[dict], list[dict]]:
     return results, timings_sorted
 
 
+def run_fast_path_timing(config: dict, *, policy_name: str = "S") -> list[dict]:
+    """KC3 (plans/01_DECISIONS.md D-07) needs raw per-tick fast-path timing
+    samples, which the main results row doesn't carry (that's a whole-run
+    number, not comparable to the D-07 budget). This is deliberately a
+    *separate*, small measurement -- one trace per regime, the largest
+    configured budget, the first holdout seed -- not a full sweep, since
+    it exists only to sanity-check a cost claim, not to be exhaustive.
+    Written to its own fastpath-*.jsonl so report.py can read it without
+    ever re-running a policy itself (WP-09 acceptance)."""
+    weights = load_weights(config)
+    policy_config = {"weights": weights} if (policy_name == "S" and weights is not None) else {}
+    budget = max(config["budget_tokens"])
+    holdout_seeds = config["seeds"].get("holdout", [])
+    if not holdout_seeds:
+        return []
+    seed_root = holdout_seeds[0]
+
+    rows = []
+    for regime in config["regimes"]:
+        trace = generate(from_regime(regime, seed_root, n_ticks=config["n_ticks"]))
+        samples = measure_fast_path_ms_per_tick(
+            policy_name, trace, budget_tokens=budget, seed_root=seed_root, policy_config=policy_config,
+        )
+        rows.append({
+            "policy": policy_name, "regime": regime, "seed_root": seed_root,
+            "budget_tokens": budget, "n_samples": len(samples), "ms_per_tick": samples,
+        })
+    return rows
+
+
+def write_fast_path_timing(config: dict, rows: list[dict], out_dir: str | Path) -> str:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"fastpath-{config_hash(config)}.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(canonical_json(row) + "\n")
+    return str(path)
+
+
 def config_hash(config: dict) -> str:
     return sha256_str(canonical_json(config))[len("sha256:"):][:16]
 
@@ -138,6 +178,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--out", default="runs")
     parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--skip-fast-path-timing", action="store_true",
+                         help="skip the extra KC3 timing pass (main sweep is unaffected)")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -147,6 +189,11 @@ def main(argv: list[str] | None = None) -> None:
     print(f"wrote {len(results)} rows to {paths['results']}")
     print(f"wrote timing to {paths['timing']}")
     print(f"wrote config snapshot to {paths['config']}")
+
+    if not args.skip_fast_path_timing:
+        fp_rows = run_fast_path_timing(config)
+        fp_path = write_fast_path_timing(config, fp_rows, args.out)
+        print(f"wrote fast-path timing (KC3) to {fp_path}")
 
 
 if __name__ == "__main__":

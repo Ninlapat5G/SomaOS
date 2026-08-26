@@ -156,6 +156,42 @@ def run_policy_on_trace(
     )
 
 
+def measure_fast_path_ms_per_tick(
+    policy_name: str,
+    trace: Trace,
+    *,
+    budget_tokens: int,
+    seed_root: str,
+    policy_config: dict | None = None,
+) -> list[float]:
+    """Wall-clock cost of the fast path only (observe + on_tick), one
+    sample per tick -- deliberately excludes on_query and trace
+    generation, which is what D-07's budget is actually about ("คำนวณ
+    retention ทุก tick"). Iterates every tick in [0, n_ticks), including
+    ticks with no observations (on_tick must still run for those -- a
+    policy might reallocate on a fixed schedule). Not deterministic
+    (wall clock); used only for KC3, never written to the deterministic
+    results JSONL."""
+    import time
+
+    policy = build_policy(policy_name)
+    policy.reset(budget_tokens=budget_tokens, seed_root=seed_root, config=policy_config or {})
+
+    obs_by_tick: dict[int, list[Observation]] = {}
+    for ev in trace.events:
+        if ev.kind == "observe":
+            obs_by_tick.setdefault(ev.tick, []).append(Observation(tick=ev.tick, item=ev.observation.item))
+
+    samples: list[float] = []
+    for t in range(trace.n_ticks):
+        start = time.perf_counter()
+        for obs in obs_by_tick.get(t, ()):
+            policy.observe(obs)
+        policy.on_tick(t)
+        samples.append((time.perf_counter() - start) * 1000.0)
+    return samples
+
+
 def build_metric_row(
     *,
     policy_name: str,
