@@ -295,9 +295,16 @@ def render_markdown(report: dict) -> str:
 
     lines.append("## 7. Reproduction")
     lines.append(f"- rows: {report['provenance']['n_rows']}")
-    lines.append(f"- trace_ids: {', '.join(report['provenance']['trace_ids'][:5])}"
-                  + (" ..." if len(report["provenance"]["trace_ids"]) > 5 else ""))
-    lines.append(f"- config_hashes: {', '.join(report['provenance']['config_hashes'])}")
+    trace_ids = report["provenance"]["trace_ids"]
+    config_hashes = report["provenance"]["config_hashes"]
+    lines.append(
+        f"- trace_ids ({len(trace_ids)} total, first 5 shown; full list in report.json): "
+        + ", ".join(trace_ids[:5]) + (" ..." if len(trace_ids) > 5 else "")
+    )
+    lines.append(
+        f"- config_hashes ({len(config_hashes)} total, first 5 shown; full list in "
+        "report.json): " + ", ".join(config_hashes[:5]) + (" ..." if len(config_hashes) > 5 else "")
+    )
     lines.append("")
 
     return "\n".join(lines)

@@ -79,3 +79,33 @@ def test_headline_table_only_uses_holdout(tmp_path):
     table = report.build_headline_table(rows)
     for row in table:
         assert row["strict_recall_mean"] != -999.0
+
+
+def test_reproduction_section_stays_bounded_with_many_distinct_config_hashes():
+    """Regression: config_hash is near-unique per row (it folds in
+    seed_root), so at full phase0.json scale (6336 rows) render_markdown
+    used to join ALL distinct config_hashes onto one line -- 462KB on a
+    single line from one real run. trace_ids was already sliced to 5;
+    config_hashes was not. The full lists still belong in report.json for
+    reproducibility; only the markdown line needs to stay readable."""
+    rows = []
+    for i in range(3000):
+        rows.append({
+            "policy": "S", "regime": "uniform", "seed_root": f"seed-{i}",
+            "seed_split": "holdout", "budget_tokens": 4096, "tau_ticks": 32,
+            "strict_recall": 0.5, "tokens_per_query": 100.0,
+            "competitive_ratio": 0.5, "surprise_utility_spearman": 0.1,
+            "trace_id": f"sha256:trace{i}", "config_hash": f"sha256:cfg{i}",
+        })
+    rep = report.build_report(rows, [], {})
+    assert len(rep["provenance"]["config_hashes"]) == 3000
+    assert len(rep["provenance"]["trace_ids"]) == 3000
+
+    md = report.render_markdown(rep)
+    lines = md.split("\n")
+    assert max(len(line) for line in lines) < 2000
+    repro_lines = [l for l in lines if l.startswith("- config_hashes") or l.startswith("- trace_ids")]
+    assert len(repro_lines) == 2
+    for line in repro_lines:
+        assert "3000 total" in line
+        assert "report.json" in line
