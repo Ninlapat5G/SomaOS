@@ -187,3 +187,16 @@ policy ไหนอยากได้ page ไหนกลับมา ต้อ
 `answered_via_pointer_rate`, `pointer_denied_rate`, `effective_tokens_per_query`
 
 `answered_via_pointer_rate` คือตัวเลขที่ทำให้ต้องแก้ D-13 — เก็บไว้เป็น regression guard ถาวร
+
+### ⚠️ ข้อจำกัดที่ต้องรายงานคู่กันเสมอ
+
+D-14 ทำให้ `B3` (summarize) **ไม่มีทางได้ประโยชน์จากการ summarize เลย** — ได้แต่เสีย token
+เพราะ quality ที่ L1 คือ answerability แบบเทียบ id ตรง ๆ (D-02) ซึ่งไม่มีแนวคิดเรื่อง
+"summary เก็บใจความของ fact ไว้ได้บางส่วน" และ pointer กลับไปหา raw ก็ต้องจ่ายเงินแล้ว
+
+D-13 เคยจำลองข้อนี้ด้วยการให้ retained id ฟรี ซึ่งกลายเป็นช่องโหว่
+D-14 เลือกทางที่ **conservative และไม่มีใครได้ของฟรี** แทน
+
+→ ต้องรายงานเสมอว่า `B3` เป็น **lower bound** ของระบบ summarize จริง
+   "S ชนะ B3" จึงแทบไม่ใช่หลักฐานอะไรเลย — ตัวที่ต้องชนะให้ได้คือ `B2` (ตาม KC1 อยู่แล้ว)
+   มี static warning ใน report.py คุมไว้ให้ขึ้นทุกครั้ง

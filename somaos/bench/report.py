@@ -162,6 +162,12 @@ def build_report(rows: list[dict], fast_path_ms: list[float], cfg: dict) -> dict
         "B2's similarity uses ground-truth topic/entity tags directly (no "
         "embedding model exists in Phase 0), making it a stronger baseline "
         "than a real vector-RAG system would be.",
+        "Under D-14 the summarize baseline B3 can only lose tokens, never "
+        "gain answers: quality is id-exact answerability (D-02), which has "
+        "no notion of a summary partially preserving a fact, and a pointer "
+        "back to the raw evidence now costs tokens to follow. Treat B3 as a "
+        "LOWER bound on a real summarization system -- beating B3 is weak "
+        "evidence of anything.",
     ]
 
     return {

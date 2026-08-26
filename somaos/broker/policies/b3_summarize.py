@@ -29,11 +29,13 @@ class SummarizeEveryNPolicy:
         keep_recent: int = 100,
         retain_fraction: float = 0.2,
         compression_ratio: float = 0.15,
+        chunk_raw_tokens: int = 2000,
     ) -> None:
         self.summarize_every = summarize_every
         self.keep_recent = keep_recent
         self.retain_fraction = retain_fraction
         self.compression_ratio = compression_ratio
+        self.chunk_raw_tokens = chunk_raw_tokens
 
         self._budget_tokens = 0
         self._items: dict[str, MemoryItem] = {}
@@ -51,6 +53,7 @@ class SummarizeEveryNPolicy:
         self.keep_recent = config.get("keep_recent", self.keep_recent)
         self.retain_fraction = config.get("retain_fraction", self.retain_fraction)
         self.compression_ratio = config.get("compression_ratio", self.compression_ratio)
+        self.chunk_raw_tokens = config.get("chunk_raw_tokens", self.chunk_raw_tokens)
 
     def observe(self, obs: Observation) -> EncodeDecision:
         item = obs.item
@@ -67,31 +70,63 @@ class SummarizeEveryNPolicy:
         if len(old_ids) < 2:
             return
 
-        old_ids_sorted = sorted(old_ids, key=lambda iid: (-self._items[iid].surprise, iid))
-        n_retain = max(0, math.ceil(len(old_ids_sorted) * self.retain_fraction))
-        retained = old_ids_sorted[:n_retain]
+        # Summarize in bounded chunks rather than folding the entire
+        # backlog into one item. The original single-blob version grew a
+        # 10,131-token summary by tick 2000 -- larger than the largest
+        # budget in any config -- so it could never enter a bundle, and
+        # B3 scored identically to B1 on every run. That made B3 a dead
+        # baseline and made D-13, which existed specifically so B3's
+        # summaries could answer for retained evidence, never fire once.
+        # Chunking keeps D-12's semantics (k items -> 1 lossy summary
+        # holding the top-surprise ids) while leaving the summary small
+        # enough to actually be used. This strengthens a baseline S is
+        # measured against; it cannot flatter S.
+        new_summaries: list[MemoryItem] = []
+        chunk: list[str] = []
+        chunk_tokens = 0
 
-        total_old_tokens = sum(self._items[iid].tokens for iid in old_ids)
-        summary_tokens = max(1, math.ceil(total_old_tokens * self.compression_ratio))
+        def _flush_chunk() -> None:
+            nonlocal chunk, chunk_tokens
+            if len(chunk) < 2:
+                # Too small to be worth compressing; leave as raw.
+                for iid in chunk:
+                    keep_raw.add(iid)
+                chunk, chunk_tokens = [], 0
+                return
+            ranked = sorted(chunk, key=lambda iid: (-self._items[iid].surprise, iid))
+            n_retain = max(0, math.ceil(len(ranked) * self.retain_fraction))
+            summary_id = f"summary_{self._summary_counter}"
+            self._summary_counter += 1
+            new_summaries.append(MemoryItem(
+                id=summary_id, kind="semantic",
+                tokens=max(1, math.ceil(chunk_tokens * self.compression_ratio)),
+                created_tick=tick, topics=(), entities=(),
+                surprise=0.0, novelty=0.0,
+                source_item_ids=tuple(ranked[:n_retain]),
+            ))
+            chunk, chunk_tokens = [], 0
 
-        summary_id = f"summary_{self._summary_counter}"
-        self._summary_counter += 1
-        summary_item = MemoryItem(
-            id=summary_id, kind="semantic", tokens=summary_tokens, created_tick=tick,
-            topics=(), entities=(), surprise=0.0, novelty=0.0,
-            source_item_ids=tuple(retained),
-        )
+        keep_raw: set[str] = set()
+        for iid in old_ids:  # already in trace order
+            chunk.append(iid)
+            chunk_tokens += self._items[iid].tokens
+            if chunk_tokens >= self.chunk_raw_tokens:
+                _flush_chunk()
+        _flush_chunk()
 
-        old_set = set(old_ids)
+        dropped = [iid for iid in old_ids if iid not in keep_raw]
+        old_set = set(dropped)
         self._order = [iid for iid in self._order if iid not in old_set]
-        for iid in old_ids:
+        for iid in dropped:
             del self._items[iid]
 
-        self._items[summary_id] = summary_item
-        self._order.append(summary_id)
-        self._stats["llm_calls"] += 1
-        self._stats["summarizations"] += 1
-        self._stats["evictions"] += len(old_ids) - 0  # old raw items removed from store
+        for summary_item in new_summaries:
+            self._items[summary_item.id] = summary_item
+            self._order.append(summary_item.id)
+
+        self._stats["llm_calls"] += len(new_summaries)
+        self._stats["summarizations"] += len(new_summaries)
+        self._stats["evictions"] += len(dropped)
 
     def on_query(self, q: QueryView) -> ContextBundle:
         chosen: list[str] = []

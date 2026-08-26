@@ -1,3 +1,5 @@
+import pytest
+
 import somaos.broker.policies  # noqa: F401
 from somaos.bench.trace.generator import from_regime, generate
 from somaos.broker.policy import build_policy
@@ -82,3 +84,90 @@ def test_bundle_respects_budget_on_real_trace():
         if ev.kind == "query":
             bundle = policy.on_query(to_view(ev.query))
             bundle.validate()  # raises if over budget
+
+
+# --------------------------------------------------------------------------
+# WP-12: recall_budget_fraction
+# --------------------------------------------------------------------------
+
+
+def _drive(policy, trace, budget, config):
+    from somaos.broker.types import Observation, to_view
+
+    policy.reset(budget_tokens=budget, seed_root="wp12", config=config)
+    bundles = []
+    for ev in trace.events:
+        if ev.kind == "observe":
+            policy.observe(Observation(tick=ev.tick, item=ev.observation.item))
+        policy.on_tick(ev.tick)
+        if ev.kind == "query":
+            bundles.append((ev.query, policy.on_query(to_view(ev.query))))
+    return bundles
+
+
+def test_recall_budget_fraction_is_validated():
+    p = build_policy("S")
+    for bad in (-0.1, 1.5):
+        with pytest.raises(ValueError):
+            p.reset(budget_tokens=1024, seed_root="x", config={"recall_budget_fraction": bad})
+
+
+def test_bundle_never_exceeds_budget_at_any_fraction():
+    """Reserving a quota must not become an extra allowance."""
+    trace = generate(from_regime("uniform", "wp12-01", n_ticks=600))
+    for frac in (0.0, 0.25, 0.5, 1.0):
+        p = build_policy("S")
+        for _, bundle in _drive(p, trace, 1024, {"tau_ticks": 32, "recall_budget_fraction": frac}):
+            bundle.validate()
+
+
+def test_working_set_cannot_crowd_out_the_recall_quota():
+    """The failure WP-12 exists to fix: with fraction=0 the working set
+    took essentially the whole bundle. With a quota reserved, items the
+    query is actually similar to must occupy at least part of it."""
+    trace = generate(from_regime("uniform", "wp12-02", n_ticks=1500))
+    budget = 4096
+    quota = int(budget * 0.5)
+
+    p = build_policy("S")
+    pairs = _drive(p, trace, budget, {"tau_ticks": 32, "recall_budget_fraction": 0.5})
+    assert pairs, "trace produced no queries"
+
+    from somaos.broker.policies.s_soma import _sim
+
+    checked = 0
+    for query, bundle in pairs:
+        q_t, q_e = frozenset(query.topics), frozenset(query.entities)
+        similar_tokens = sum(it.tokens for it in bundle.items if _sim(it, q_t, q_e) > 0.0)
+        store_has_similar = any(
+            _sim(it, q_t, q_e) > 0.0 for it in p._items.values()
+        )
+        if not store_has_similar:
+            continue
+        checked += 1
+        # Either recall filled its quota, or it ran out of similar items
+        # to put there -- never "the working set got there first".
+        assert similar_tokens > 0, (
+            f"query {query.id}: store holds items similar to the query but none "
+            "reached the bundle -- the recall quota is being crowded out"
+        )
+    assert checked > 0, "no query in this trace had a similar item in the store"
+
+
+def test_higher_fraction_shifts_tokens_toward_query_relevant_items():
+    trace = generate(from_regime("uniform", "wp12-03", n_ticks=1500))
+    from somaos.broker.policies.s_soma import _sim
+
+    def relevant_share(frac):
+        p = build_policy("S")
+        pairs = _drive(p, trace, 4096, {"tau_ticks": 32, "recall_budget_fraction": frac})
+        rel = tot = 0
+        for query, bundle in pairs:
+            q_t, q_e = frozenset(query.topics), frozenset(query.entities)
+            for it in bundle.items:
+                tot += it.tokens
+                if _sim(it, q_t, q_e) > 0.0:
+                    rel += it.tokens
+        return rel / tot if tot else 0.0
+
+    assert relevant_share(0.5) > relevant_share(0.0)

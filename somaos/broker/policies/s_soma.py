@@ -56,6 +56,7 @@ class SomaPolicy:
         goal_window: int = 64,
         tau_ticks: int = 32,
         hysteresis: float = 0.05,
+        recall_budget_fraction: float = 0.25,
         weights: RetentionWeights | None = None,
     ) -> None:
         self.tau_high = tau_high
@@ -64,6 +65,7 @@ class SomaPolicy:
         self.goal_window = goal_window
         self.tau_ticks = tau_ticks
         self.hysteresis = hysteresis
+        self.recall_budget_fraction = recall_budget_fraction
         self.weights = weights or _DEFAULT_WEIGHTS
 
         self._budget_tokens = 0
@@ -102,6 +104,13 @@ class SomaPolicy:
         self.goal_window = config.get("goal_window", self.goal_window)
         self.tau_ticks = config.get("tau_ticks", self.tau_ticks)
         self.hysteresis = config.get("hysteresis", self.hysteresis)
+        self.recall_budget_fraction = config.get(
+            "recall_budget_fraction", self.recall_budget_fraction
+        )
+        if not 0.0 <= self.recall_budget_fraction <= 1.0:
+            raise ValueError(
+                f"recall_budget_fraction must be in [0, 1], got {self.recall_budget_fraction}"
+            )
 
         self._allocator = WorkingSetAllocator(
             budget_tokens=budget_tokens, weights=weights_obj,
@@ -159,8 +168,15 @@ class SomaPolicy:
             # of the counter -- confirmation doesn't need a new episode), but
             # it must still be *recoverable*: fold its id into the absorbing
             # item's source_item_ids so a query asking for exactly this id
-            # can still be satisfied by the item that now represents it
-            # (D-13's coverage rule; mirrors what B3's summary items do).
+            # can still be satisfied by the item that now represents it.
+            #
+            # Under D-14 that recovery is no longer free: reading through
+            # this pointer is a page fault charged at the raw item's token
+            # size, and the queue is served in the order the ids were folded
+            # in (arrival order). S declares no priority over them, so in
+            # practice it recovers almost nothing this way -- which is the
+            # honest accounting. It threw the content away.
+            #
             # MemoryItem is frozen, so this is a replace-in-place by id, not
             # a mutation of the object a caller might be holding a reference to.
             absorbing = self._items[nearest]
@@ -209,30 +225,68 @@ class SomaPolicy:
         )
 
     def on_query(self, q: QueryView) -> ContextBundle:
+        """Build the bundle in three passes (WP-12).
+
+        The original single-pass version filled from the working set
+        first and gave query-targeted recall whatever was left, which in
+        practice was nothing: diagnostics on uniform/dev-01 showed the
+        working set consuming 99.9% of bundle tokens while only 51% of
+        the items a query needed ever reached the bundle -- despite 100%
+        of them being in the store. The working set is chosen against a
+        *rear-facing* goal (topics seen recently, on_tick), so it is not
+        even trying to answer the question being asked.
+
+        So targeted recall now gets first claim on `recall_budget_fraction`
+        of the budget, the working set fills the rest, and anything still
+        unspent goes back to recall. Reserving budget cannot make the
+        bundle exceed it -- the quota is a floor on recall's share, not
+        an extra allowance.
+        """
+        q_topics = frozenset(q.topics)
+        q_entities = frozenset(q.entities)
+
         resident_ids = self._allocator.resident_ids if self._allocator else frozenset()
         resident_ids = resident_ids & self._items.keys()
 
-        chosen: list[str] = []
-        total = 0
-        for iid in sorted(resident_ids):
-            item = self._items[iid]
-            if total + item.tokens <= self._budget_tokens:
-                chosen.append(iid)
-                total += item.tokens
-
-        q_topics = frozenset(q.topics)
-        q_entities = frozenset(q.entities)
-        remaining = [iid for iid in self._items if iid not in set(chosen)]
-        remaining_ranked = sorted(
-            remaining,
+        by_similarity = sorted(
+            self._items,
             key=lambda iid: (-_sim(self._items[iid], q_topics, q_entities), iid),
         )
-        for iid in remaining_ranked:
-            item = self._items[iid]
-            if total + item.tokens > self._budget_tokens:
-                continue
+
+        chosen: list[str] = []
+        taken: set[str] = set()
+        total = 0
+
+        def _admit(iid: str, ceiling: int) -> bool:
+            nonlocal total
+            if iid in taken:
+                return False
+            tokens = self._items[iid].tokens
+            if total + tokens > ceiling:
+                return False
             chosen.append(iid)
-            total += item.tokens
+            taken.add(iid)
+            total += tokens
+            return True
+
+        # Pass 1 -- targeted recall, inside its reserved quota. Only items
+        # with some similarity to the query qualify; a zero-similarity
+        # item is not "recall", it is just filler, and the working set
+        # pass below is the honest place for that.
+        quota = int(self._budget_tokens * self.recall_budget_fraction)
+        if quota > 0:
+            for iid in by_similarity:
+                if _sim(self._items[iid], q_topics, q_entities) <= 0.0:
+                    break
+                _admit(iid, quota)
+
+        # Pass 2 -- working set fills whatever the quota left over.
+        for iid in sorted(resident_ids):
+            _admit(iid, self._budget_tokens)
+
+        # Pass 3 -- recall again for any budget still unspent.
+        for iid in by_similarity:
+            _admit(iid, self._budget_tokens)
 
         for iid in chosen:
             self._stats_by_id[iid].last_access_tick = q.tick
