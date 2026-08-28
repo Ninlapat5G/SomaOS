@@ -1,0 +1,911 @@
+<title>SomaOS Memory Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #E9ECEF;
+    --surface:     #FFFFFF;
+    --surface-alt: #F2F4F6;
+    --line:        #C9D1D8;
+    --line-soft:   #DEE4E9;
+    --ink:         #172026;
+    --ink-mid:     #4A5A65;
+    --ink-soft:    #6E7F8A;
+    --holds:       #1F6F66;
+    --holds-bg:    #DDEDEA;
+    --fades:       #9A5A16;
+    --fades-bg:    #F4E7D6;
+    --flag:        #8C2F39;
+    --flag-bg:     #F5E1E3;
+    --shadow:      0 1px 2px rgba(23,32,38,.06), 0 8px 24px rgba(23,32,38,.05);
+
+    --sans: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #10151A;
+      --surface:     #171E24;
+      --surface-alt: #1D262D;
+      --line:        #2E3B45;
+      --line-soft:   #232E36;
+      --ink:         #DCE5EB;
+      --ink-mid:     #A2B2BE;
+      --ink-soft:    #7A8B98;
+      --holds:       #56B8AA;
+      --holds-bg:    #17332F;
+      --fades:       #D79B4E;
+      --fades-bg:    #33261340;
+      --flag:        #E07C87;
+      --flag-bg:     #331A1E;
+      --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #10151A;
+    --surface:     #171E24;
+    --surface-alt: #1D262D;
+    --line:        #2E3B45;
+    --line-soft:   #232E36;
+    --ink:         #DCE5EB;
+    --ink-mid:     #A2B2BE;
+    --ink-soft:    #7A8B98;
+    --holds:       #56B8AA;
+    --holds-bg:    #17332F;
+    --fades:       #D79B4E;
+    --fades-bg:    #33261340;
+    --flag:        #E07C87;
+    --flag-bg:     #331A1E;
+    --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 3.5rem 0 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    margin: 0 0 .75rem;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.1rem;
+    color: var(--ink-mid);
+    max-width: 42rem;
+    margin: 0 0 2rem;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--line-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .stat { background: var(--surface); padding: .9rem 1rem; }
+  .stat dt {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 .2rem;
+  }
+  .stat dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .stat dd small { font-size: .8rem; color: var(--ink-soft); font-weight: 400; }
+
+  /* ---------- sections ---------- */
+  section { margin: 0 0 4rem; }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 .4rem;
+    padding-top: 1.25rem;
+    border-top: 2px solid var(--ink);
+    text-wrap: balance;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: .35rem;
+    letter-spacing: .08em;
+  }
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    margin: 2.2rem 0 .5rem;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 1rem; max-width: 44rem; }
+  .lede { color: var(--ink-mid); margin-bottom: 2rem; max-width: 44rem; }
+  a { color: var(--holds); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--holds);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code, .mono { font-family: var(--mono); font-size: .87em; }
+  code { background: var(--surface-alt); padding: .1em .35em; border-radius: 2px; }
+
+  strong { font-weight: 600; }
+  em.hl { font-style: normal; color: var(--holds); font-weight: 500; }
+
+  /* ---------- figures ---------- */
+  figure {
+    margin: 2rem 0;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 1.75rem 1.5rem 1.25rem;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 1.25rem;
+    padding-top: .9rem;
+    border-top: 1px solid var(--line-soft);
+    font-size: .875rem;
+    color: var(--ink-mid);
+    line-height: 1.6;
+  }
+  .svg-label { font-family: var(--mono); font-size: 11px; fill: var(--ink-mid); }
+  .svg-title { font-family: var(--mono); font-size: 12.5px; font-weight: 500; fill: var(--ink); }
+  .svg-note  { font-family: var(--mono); font-size: 10px; fill: var(--ink-soft); }
+
+  /* ---------- tables ---------- */
+  .scroll { overflow-x: auto; margin: 1.75rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    caption-side: top;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding-bottom: .6rem;
+  }
+  th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  thead th {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  td .k { font-family: var(--mono); font-size: .84em; }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .05em;
+    padding: .12em .5em;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.hold { background: var(--holds-bg); color: var(--holds); }
+  .pill.fade { background: var(--fades-bg); color: var(--fades); }
+  .pill.stop { background: var(--flag-bg);  color: var(--flag); }
+
+  /* ---------- callout ---------- */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--holds);
+    border-radius: 0 3px 3px 0;
+    padding: 1.1rem 1.35rem;
+    margin: 1.75rem 0;
+  }
+  .note.warn { border-left-color: var(--flag); }
+  .note p:last-child { margin-bottom: 0; }
+  .note .tag {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: .4rem;
+  }
+
+  /* ---------- checklist ---------- */
+  .wps { display: grid; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: 3px; overflow: hidden; margin: 1.75rem 0; }
+  .wp { background: var(--surface); padding: .85rem 1.1rem; display: grid; grid-template-columns: 2.6rem 1fr auto; gap: 1rem; align-items: baseline; }
+  .wp .id { font-family: var(--mono); font-size: .8rem; color: var(--ink-soft); font-weight: 500; }
+  .wp .what { font-size: .93rem; }
+  .wp .what small { display: block; color: var(--ink-soft); font-size: .8rem; line-height: 1.5; }
+  .wp .st { font-family: var(--mono); font-size: .74rem; white-space: nowrap; }
+  .wp.done .st { color: var(--holds); }
+  .wp.todo { background: var(--surface-alt); }
+  .wp.todo .st { color: var(--ink-soft); }
+
+  /* ---------- questions ---------- */
+  ol.q { list-style: none; counter-reset: q; padding: 0; margin: 1.75rem 0; display: grid; gap: 1rem; }
+  ol.q li {
+    counter-increment: q;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 1.1rem 1.35rem 1.1rem 3.4rem;
+    position: relative;
+  }
+  ol.q li::before {
+    content: counter(q);
+    position: absolute;
+    left: 1.35rem; top: 1.1rem;
+    font-family: var(--mono);
+    font-size: .9rem;
+    color: var(--fades);
+    font-weight: 600;
+  }
+  ol.q b { display: block; margin-bottom: .2rem; }
+  ol.q p { margin: 0; font-size: .92rem; color: var(--ink-mid); }
+
+  ul.plain { padding-left: 1.1rem; margin: 1rem 0; max-width: 44rem; }
+  ul.plain li { margin-bottom: .5rem; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color .15s ease; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">SomaOS · Phase 0b · 28 ส.ค. 2026</p>
+  <h1>โครงสร้างหน่วยความจำ SomaOS</h1>
+  <p class="standfirst">
+    ความจำไม่มีวันหาย — มันแค่ลึกลงและจางลง สถาปัตยกรรมนี้แยกสองอย่างนั้นออกจากกัน
+    เก็บความรู้เป็นเวกเตอร์ และทำให้การนึกเป็นการเดินที่มีเพดาน
+  </p>
+  <dl class="stats">
+    <div class="stat"><dt>work packages</dt><dd>7<small> / 13</small></dd></div>
+    <div class="stat"><dt>tests</dt><dd>539</dd></div>
+    <div class="stat"><dt>โมดูลใหม่</dt><dd>5</dd></div>
+    <div class="stat"><dt>invariant ที่คุมแล้ว</dt><dd>12<small> / 12</small></dd></div>
+    <div class="stat"><dt>dependency</dt><dd>numpy</dd></div>
+  </dl>
+</header>
+
+<section>
+  <h2><span class="num">01</span>ความคิดเดียวที่ทุกอย่างตั้งอยู่บน</h2>
+  <p class="lede">
+    ดีไซน์เก่าถามว่า “จำอะไร ทิ้งอะไร” แล้วมันตอบผิด — <code>S</code> ตัวเก่าทิ้งข้อมูลถาวร 75–88%
+    ของทุกอย่างที่เห็น ดีไซน์นี้ไม่ถามคำถามนั้นเลย มันถามว่า <em class="hl">ความทรงจำเสื่อมสภาพยังไง</em>
+    แล้วแยกคำตอบออกเป็นสองแกนที่ไม่เกี่ยวกัน
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 700 330" role="img" aria-label="แผนภาพสองแกนของการลืม: แกนตั้งคือความคมชัดซึ่งลดลงเมื่อคลังเต็ม แกนนอนคือความลึกซึ่งเพิ่มขึ้นเมื่อไม่ได้ใช้ ความทรงจำเคลื่อนที่ในระนาบนี้แต่ไม่เคยหลุดออกไป">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="ah-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--fades)"/>
+        </marker>
+        <marker id="ah-h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--holds)"/>
+        </marker>
+      </defs>
+
+      <!-- plane -->
+      <rect x="90" y="40" width="470" height="220" fill="none" stroke="currentColor" stroke-opacity=".16"/>
+      <line x1="90" y1="40" x2="90" y2="260" stroke="currentColor" stroke-opacity=".45"/>
+      <line x1="90" y1="260" x2="560" y2="260" stroke="currentColor" stroke-opacity=".45"/>
+
+      <!-- grid -->
+      <line x1="90" y1="113" x2="560" y2="113" stroke="currentColor" stroke-opacity=".08"/>
+      <line x1="90" y1="186" x2="560" y2="186" stroke="currentColor" stroke-opacity=".08"/>
+      <line x1="247" y1="40" x2="247" y2="260" stroke="currentColor" stroke-opacity=".08"/>
+      <line x1="404" y1="40" x2="404" y2="260" stroke="currentColor" stroke-opacity=".08"/>
+
+      <!-- axis labels -->
+      <text class="svg-title" x="90" y="26" fill="var(--fades)">ความคมชัด · fidelity</text>
+      <text class="svg-label" x="90" y="292">ความลึก · retrieval strength</text>
+      <text class="svg-note" x="90" y="309">ยิ่งไม่ได้ใช้ ยิ่งต้องเดินหลายก้าวกว่าจะถึง</text>
+      <text class="svg-note" x="574" y="150">คลังเต็ม</text>
+      <text class="svg-note" x="574" y="164">→ จางลง</text>
+
+      <!-- four memories -->
+      <circle cx="150" cy="75" r="7" fill="var(--holds)"/>
+      <text class="svg-label" x="164" y="72">เพิ่งเกิด · ใช้บ่อย</text>
+      <text class="svg-note"  x="164" y="87">D0 float32 · ตอบได้ทุกอย่าง</text>
+
+      <circle cx="480" cy="95" r="6" fill="var(--holds)" fill-opacity=".55"/>
+      <text class="svg-label" x="360" y="120" text-anchor="middle">คมชัดแต่ลึก</text>
+      <text class="svg-note"  x="360" y="135" text-anchor="middle">“เรื่องสะเทือนใจที่ไม่ได้คิดถึงมานาน”</text>
+
+      <circle cx="160" cy="225" r="6" fill="var(--fades)"/>
+      <text class="svg-label" x="178" y="222">ตื้นแต่หยาบ</text>
+      <text class="svg-note"  x="178" y="237">“นึกถึงบ่อย แต่นานมาก”</text>
+
+      <circle cx="500" cy="235" r="6" fill="var(--fades)" fill-opacity=".6"/>
+      <text class="svg-label" x="492" y="255" text-anchor="end">ลึกและหยาบ</text>
+      <text class="svg-note"  x="492" y="270" text-anchor="end">D4 · “เคยมีเรื่องแบบนี้ n ครั้ง”</text>
+
+      <!-- movement arrows -->
+      <line x1="150" y1="90" x2="150" y2="205" stroke="var(--fades)" stroke-width="1.5"
+            stroke-dasharray="4 3" marker-end="url(#ah-f)"/>
+      <text class="svg-note" x="126" y="150" text-anchor="end" fill="var(--fades)">คลังเต็ม</text>
+
+      <line x1="172" y1="72" x2="455" y2="92" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5"
+            marker-end="url(#ah)"/>
+      <text class="svg-note" x="300" y="72" text-anchor="middle">ไม่ได้ใช้</text>
+
+      <line x1="455" y1="103" x2="185" y2="80" stroke="var(--holds)" stroke-width="1.5" marker-end="url(#ah-h)"/>
+      <text class="svg-note" x="320" y="99" text-anchor="middle" fill="var(--holds)">นึกถึงอีกครั้ง — ตื้นขึ้น แต่ไม่คมขึ้น</text>
+
+      <!-- floor -->
+      <line x1="90" y1="260" x2="560" y2="260" stroke="var(--fades)" stroke-width="2.5"/>
+      <text class="svg-label" x="560" y="253" text-anchor="end" fill="var(--fades)">พื้น D4 — ไม่มีขั้นที่แปลว่า “หาย”</text>
+    </svg>
+    <figcaption>
+      ความทรงจำเคลื่อนที่ในระนาบนี้ได้ทุกทิศ ยกเว้นทิศเดียว: ขึ้นบน การนึกถึงใหม่ดึงมันไปทางซ้าย (เข้าถึงง่ายขึ้น)
+      แต่ไม่เคยดึงขึ้น (รายละเอียดที่หายไปแล้วไม่กลับมา) และไม่มีขอบล่างที่หลุดออกจากระนาบ — ตรงกับ
+      <strong>Bjork &amp; Bjork (1992)</strong> ที่แยก retrieval strength ออกจาก storage strength
+      และบอกว่าการลืมคือ “เข้าถึงไม่ได้” ไม่ใช่ “ถูกลบ”
+    </figcaption>
+  </figure>
+
+  <div class="note">
+    <span class="tag">Invariant N-01</span>
+    <p><code>resolve(addr)</code> <strong>ห้ามคืน <code>None</code></strong> สำหรับ address ที่เคยถูกสร้าง ตลอดอายุของ agent
+    — ทุกครั้งที่ความทรงจำจาง จะเขียน <code>alias</code> ชี้ไปตัวที่แทนมัน คนที่ถือ address เก่ายังใช้ได้
+    แค่ได้ของที่หยาบลง (เหมือน page table entry ที่ชี้ไป frame ที่ถูกบีบอัด)</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>สี่ภูมิภาค — คนละหน้าที่ คนละกฎ</h2>
+  <p class="lede">
+    Squire แสดงว่าระบบความจำของคนแยกกันจริงและเสียหายแยกกันได้ (ผู้ป่วย H.M. จำเหตุการณ์ใหม่ไม่ได้เลย
+    แต่ยังเรียนทักษะใหม่ได้) การยัดทุกอย่างลง vector store ก้อนเดียวจึงไม่ใช่แค่ไม่เป็นระเบียบ
+    — มันขัดกับหลักฐาน
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 700 400" role="img" aria-label="แผนที่สี่ภูมิภาคของความจำ: CORE อยู่ใน context เสมอ, TRIGGER เป็น interrupt table, SKILL ดึงด้วย cue ของสถานการณ์, ARCHIVE เป็นต้นไม้ที่เดินเข้าที่ชั้น general event">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- context window -->
+      <rect x="24" y="24" width="200" height="352" rx="3" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-dasharray="5 4"/>
+      <text class="svg-title" x="124" y="46" text-anchor="middle">context window</text>
+      <text class="svg-note"  x="124" y="62" text-anchor="middle">= physical RAM</text>
+
+      <!-- CORE -->
+      <rect x="42" y="80" width="164" height="92" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="svg-title" x="56" y="102" fill="var(--holds)">CORE</text>
+      <text class="svg-label" x="56" y="120">ตัวตน · นิสัย · ค่านิยม</text>
+      <text class="svg-note"  x="56" y="136">trait → adaptation → narrative</text>
+      <text class="svg-note"  x="56" y="152">อยู่ทุก tick · ห้ามเจือจาง</text>
+      <text class="svg-note"  x="56" y="166">= pinned kernel pages</text>
+
+      <!-- recalled block -->
+      <rect x="42" y="192" width="164" height="76" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+      <text class="svg-title" x="56" y="214">ที่ดึงมาแล้ว</text>
+      <text class="svg-note"  x="56" y="232">materialize เท่านั้นที่จ่าย token</text>
+      <text class="svg-note"  x="56" y="248">และแตะข้อความได้</text>
+
+      <!-- TRIGGER -->
+      <rect x="42" y="288" width="164" height="70" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="svg-title" x="56" y="310" fill="var(--fades)">TRIGGER</text>
+      <text class="svg-note"  x="56" y="328">interrupt · ไม่กิน context</text>
+      <text class="svg-note"  x="56" y="344">event O(1) · time O(1) · predicate จ่าย ops</text>
+
+      <!-- external store -->
+      <rect x="290" y="24" width="386" height="352" rx="3" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+      <text class="svg-title" x="483" y="46" text-anchor="middle">external memory · store_budget_bytes</text>
+      <text class="svg-note"  x="483" y="62" text-anchor="middle">= disk ที่กำหนดขนาดได้ — “ขนาดสมอง”</text>
+
+      <!-- archive tree -->
+      <text class="svg-label" x="310" y="92">ARCHIVE</text>
+      <circle cx="483" cy="112" r="8" fill="none" stroke="var(--holds)" stroke-width="1.5"/>
+      <text class="svg-note" x="500" y="116" fill="var(--holds)">L4 CORE.narrative — รากเดียวกับ CORE</text>
+
+      <line x1="483" y1="120" x2="420" y2="150" stroke="currentColor" stroke-opacity=".4"/>
+      <line x1="483" y1="120" x2="546" y2="150" stroke="currentColor" stroke-opacity=".4"/>
+      <circle cx="420" cy="156" r="7" fill="none" stroke="currentColor" stroke-opacity=".55"/>
+      <circle cx="546" cy="156" r="7" fill="none" stroke="currentColor" stroke-opacity=".55"/>
+      <text class="svg-note" x="563" y="160">L3 ช่วงชีวิต</text>
+
+      <line x1="420" y1="163" x2="386" y2="196" stroke="currentColor" stroke-opacity=".4"/>
+      <line x1="420" y1="163" x2="454" y2="196" stroke="currentColor" stroke-opacity=".4"/>
+      <line x1="546" y1="163" x2="522" y2="196" stroke="currentColor" stroke-opacity=".4"/>
+      <rect x="376" y="192" width="20" height="12" rx="2" fill="var(--fades)"/>
+      <rect x="444" y="192" width="20" height="12" rx="2" fill="var(--fades)"/>
+      <rect x="512" y="192" width="20" height="12" rx="2" fill="var(--fades)"/>
+      <text class="svg-title" x="563" y="203" fill="var(--fades)">L2 general event</text>
+      <text class="svg-note"  x="563" y="218">★ จุดเข้าของการเดิน</text>
+
+      <line x1="386" y1="204" x2="360" y2="238" stroke="currentColor" stroke-opacity=".3"/>
+      <line x1="386" y1="204" x2="404" y2="238" stroke="currentColor" stroke-opacity=".3"/>
+      <line x1="454" y1="204" x2="446" y2="238" stroke="currentColor" stroke-opacity=".3"/>
+      <line x1="522" y1="204" x2="514" y2="238" stroke="currentColor" stroke-opacity=".3"/>
+      <circle cx="360" cy="243" r="5" fill="currentColor" fill-opacity=".45"/>
+      <circle cx="404" cy="243" r="5" fill="currentColor" fill-opacity=".45"/>
+      <circle cx="446" cy="243" r="5" fill="currentColor" fill-opacity=".45"/>
+      <circle cx="514" cy="243" r="5" fill="currentColor" fill-opacity=".45"/>
+      <text class="svg-note" x="563" y="247">L1 เหตุการณ์เฉพาะ</text>
+
+      <line x1="360" y1="248" x2="352" y2="276" stroke="currentColor" stroke-opacity=".22"/>
+      <line x1="404" y1="248" x2="410" y2="276" stroke="currentColor" stroke-opacity=".22"/>
+      <line x1="446" y1="248" x2="452" y2="276" stroke="currentColor" stroke-opacity=".22"/>
+      <circle cx="352" cy="280" r="3.5" fill="currentColor" fill-opacity=".3"/>
+      <circle cx="410" cy="280" r="3.5" fill="currentColor" fill-opacity=".3"/>
+      <circle cx="452" cy="280" r="3.5" fill="currentColor" fill-opacity=".3"/>
+      <text class="svg-note" x="563" y="284">L0 รายละเอียดพื้นผิว</text>
+
+      <!-- SKILL -->
+      <rect x="310" y="308" width="230" height="52" rx="3" fill="none" stroke="var(--holds)" stroke-opacity=".7"/>
+      <text class="svg-title" x="324" y="328" fill="var(--holds)">SKILL</text>
+      <text class="svg-note"  x="324" y="345">index ด้วย cue ของสถานการณ์ ไม่ใช่หัวข้อ</text>
+      <line x1="404" y1="248" x2="404" y2="304" stroke="var(--holds)" stroke-dasharray="3 3" marker-end="url(#a2)" stroke-opacity=".8"/>
+      <text class="svg-note" x="414" y="278" fill="var(--holds)">ตกผลึก</text>
+
+      <!-- recall arrow -->
+      <line x1="376" y1="198" x2="212" y2="222" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="svg-note" x="294" y="204" text-anchor="middle">materialize</text>
+    </svg>
+    <figcaption>
+      <strong>CORE.narrative คือรากของต้นไม้ ARCHIVE</strong> — Conway บอกว่า life story schema เป็นตัว index
+      ให้ lifetime periods ส่วน McAdams บอกว่า narrative identity คือชั้นบนสุดของบุคลิกภาพ สองอันนี้คืออันเดียวกัน
+      จึงอธิบายกลไกจริงว่าทำไมตัวตนมีผลต่อสิ่งที่นึกออก: <em class="hl">ตัวตนคือจุดตั้งต้นของการเดินทุกครั้ง</em>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="num">03</span>บันไดการเจือจาง — วัดแล้ว ไม่ได้เดา</h2>
+  <p class="lede">
+    ร่างแรกของผมวางบันไดผิด: ใส่ “ลดมิติ” เป็นขั้นหนึ่ง และวาง binary ไว้ท้ายสุด
+    เลยเขียนสคริปต์วัดจริงแล้วแก้ตามผล บันไดนี้ <strong>เรียงตาม “อะไรถูกทำลาย” ไม่ใช่ “ประหยัดกี่ไบต์”</strong>
+  </p>
+
+  <div class="scroll">
+  <table>
+    <caption>dim=256 · คลัง 8,000 ชิ้น · 300 query ต่อเงื่อนไข · <span class="mono">somaos/bench/experiments/quantization_fidelity.py</span></caption>
+    <thead>
+      <tr>
+        <th>ขั้น</th><th>กลไก</th><th class="num">bytes</th>
+        <th class="num">ตอบ “ชิ้นไหน”</th><th class="num">ตอบ “แนวไหน”</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="k">D0</td><td>float32</td><td class="num">1024</td>
+        <td class="num"><span class="pill hold">1.000</span></td><td class="num"><span class="pill hold">1.000</span></td>
+      </tr>
+      <tr>
+        <td class="k">D1</td><td>scalar quantize → int8</td><td class="num">256</td>
+        <td class="num"><span class="pill hold">0.98–0.996</span></td><td class="num"><span class="pill hold">1.000</span></td>
+      </tr>
+      <tr>
+        <td class="k">D2</td><td>sign bits → binary</td><td class="num">32</td>
+        <td class="num"><span class="pill fade">0.21–0.74</span></td><td class="num"><span class="pill hold">0.79–1.00</span></td>
+      </tr>
+      <tr>
+        <td class="k">D3</td><td>ยุบเข้าแม่ (แม่รับน้ำหนัก + ช่วงเวลา)</td><td class="num">0</td>
+        <td class="num"><span class="pill stop">—</span></td><td class="num"><span class="pill hold">~1.00</span></td>
+      </tr>
+      <tr>
+        <td class="k">D4</td><td>เหลือตัวนับที่บรรพบุรุษ</td><td class="num">0</td>
+        <td class="num"><span class="pill stop">—</span></td><td class="num">“เคยมีเรื่องแบบนี้ n ครั้ง”</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>ทำไมถึงเลือก binary</h3>
+  <p>
+    <strong>binary ทำลาย “ชิ้นไหนกันแน่” แต่รักษา “มันเป็นเรื่องแนวไหน” ไว้เกือบครบ</strong>
+    — นี่ไม่ใช่ผลข้างเคียง มันคือเหตุผลที่เลือก เพราะสิ่งที่มันทำลายคือสิ่งที่ <em class="hl">ควร</em> ถูกทำลายก่อน
+    (verbatim) และสิ่งที่มันรักษาไว้คือสิ่งที่ <em class="hl">ควร</em> อยู่รอด (gist)
+    = fuzzy-trace theory ของ Brainerd &amp; Reyna ที่ implement เป็นไบต์
+  </p>
+  <p>
+    ฐานทางทฤษฎี: sign bits คือ SimHash (Charikar 2002) — โอกาสที่บิตตรงกันเป็นฟังก์ชันของมุมตรง ๆ
+    <code>P[bits agree] = 1 − θ/π</code> ดังนั้น Hamming distance คือ <strong>ตัวประมาณ cosine แบบไม่เอนเอียง</strong>
+    ที่ความแปรปรวนลดลงตามจำนวนบิต → <strong>บิต = ขนาดตัวอย่างของการประมาณมุม</strong>
+    ซึ่งเป็นเหตุผลที่ตัด “ลดมิติ” ทิ้งทั้งขั้น: ลดมิติ = ลดขนาดตัวอย่าง = พังเร็วกว่าที่ประหยัดได้
+  </p>
+
+  <h3>เส้นโค้งความจุ — ลายเซ็นที่ทั้งโปรเจกต์รอดูอยู่</h3>
+  <div class="scroll">
+  <table>
+    <caption>96 ความทรงจำ · ลดคลังจาก 200KB → 200B · <span class="mono">somaos/bench/experiments/capacity_curve.py</span></caption>
+    <thead>
+      <tr><th class="num">store_budget</th><th class="num">ใช้จริง</th><th class="num">detail</th><th class="num">gist</th><th>ทุก address ยัง resolve</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">200,000</td><td class="num">106,496</td><td class="num">1.000</td><td class="num">1.000</td><td><span class="pill hold">ใช่</span></td></tr>
+      <tr><td class="num">20,000</td><td class="num">19,904</td><td class="num">0.938</td><td class="num">1.000</td><td><span class="pill hold">ใช่</span></td></tr>
+      <tr><td class="num">3,000</td><td class="num">2,976</td><td class="num">0.773</td><td class="num">1.000</td><td><span class="pill hold">ใช่</span></td></tr>
+      <tr><td class="num">500</td><td class="num">480</td><td class="num">0.517</td><td class="num">1.000</td><td><span class="pill hold">ใช่</span></td></tr>
+      <tr><td class="num">200</td><td class="num">256</td><td class="num">0.494</td><td class="num">1.000</td><td><span class="pill hold">ใช่</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">อ่านตัวเลขนี้ด้วยความระแวง</span>
+    <p>
+      คอลัมน์ <code>gist</code> ที่คงที่ 1.000 <strong>ไม่ใช่หลักฐานว่าดีไซน์แข็ง</strong> — คลังนี้มีแค่ 8 กลุ่มที่แยกกันชัด
+      การอยู่ในกลุ่มถูกจึงง่ายเกินไปและมันเลยเพดาน นี่คือ <em class="hl">พื้น</em> ของข้ออ้าง ไม่ใช่ยอด:
+      ดีไซน์ที่สอบตกตรงนี้พังแน่ ๆ แต่สอบผ่านยังพิสูจน์อะไรไม่ได้
+    </p>
+    <p>
+      และเป็นข้อมูลสังเคราะห์แบบ Gaussian cluster ซึ่งใจดีกว่า embedding จริง (ที่ covariance ไม่สมมาตร)
+      <strong>ตัวเลขจริงต้องมาจาก WP-A13 เท่านั้น</strong> — สิ่งที่เชื่อได้ตอนนี้คือ <em>รูปแบบ</em>
+      (ขั้นไหนฆ่าคำถามแบบไหน) ไม่ใช่ทศนิยมตำแหน่งที่สาม
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">04</span>State machine ของการนึก</h2>
+  <p class="lede">
+    การนึกคือการเดิน ไม่ใช่การ lookup <strong>agent เลือกทิศ engine เป็นคนก้าว</strong>
+    ซึ่งเป็นการแบ่งที่ทำให้โมเดลจะอิสระแค่ไหนก็ได้โดยไม่มีอะไรไปแตะความถูกต้อง:
+    move เป็นเซตปิด ทุกอันถูกตรวจ เพดานบังคับที่นี่ ไม่ใช่ที่ผู้เรียก และเส้นทางถูกบันทึกทั้งหมด
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 700 300" role="img" aria-label="State machine ของการนึก หกสถานะ: IDLE, CUE, RESIDENT, NAVIGATE, MATERIALIZE, SETTLE โดย NAVIGATE เป็นที่เดียวที่จ่าย ops และ MATERIALIZE เป็นที่เดียวที่จ่าย token">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- states -->
+      <rect x="20"  y="112" width="86" height="40" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="svg-title" x="63" y="130" text-anchor="middle">IDLE</text>
+      <text class="svg-note"  x="63" y="145" text-anchor="middle">snapshot ได้</text>
+
+      <rect x="140" y="112" width="86" height="40" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="svg-title" x="183" y="130" text-anchor="middle">CUE</text>
+      <text class="svg-note"  x="183" y="145" text-anchor="middle">ทางเข้าทางเดียว</text>
+
+      <rect x="260" y="42" width="110" height="44" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="svg-title" x="315" y="62" text-anchor="middle" fill="var(--holds)">RESIDENT</text>
+      <text class="svg-note"  x="315" y="77" text-anchor="middle">0 ops</text>
+
+      <rect x="260" y="112" width="110" height="44" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="svg-title" x="315" y="132" text-anchor="middle" fill="var(--fades)">NAVIGATE</text>
+      <text class="svg-note"  x="315" y="147" text-anchor="middle">ที่เดียวที่จ่าย ops</text>
+
+      <rect x="410" y="112" width="120" height="44" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="svg-title" x="470" y="132" text-anchor="middle" fill="var(--fades)">MATERIALIZE</text>
+      <text class="svg-note"  x="470" y="147" text-anchor="middle">ที่เดียวที่จ่าย token</text>
+
+      <rect x="570" y="112" width="92" height="44" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="svg-title" x="616" y="132" text-anchor="middle">SETTLE</text>
+      <text class="svg-note"  x="616" y="147" text-anchor="middle">side effect ทั้งหมด</text>
+
+      <!-- transitions -->
+      <line x1="106" y1="132" x2="136" y2="132" stroke="currentColor" marker-end="url(#a3)"/>
+      <line x1="226" y1="126" x2="256" y2="80"  stroke="currentColor" marker-end="url(#a3)"/>
+      <line x1="226" y1="132" x2="256" y2="132" stroke="currentColor" marker-end="url(#a3)"/>
+      <line x1="370" y1="132" x2="406" y2="132" stroke="currentColor" marker-end="url(#a3)"/>
+      <line x1="370" y1="70"  x2="450" y2="108" stroke="var(--holds)" marker-end="url(#a3)"/>
+      <line x1="530" y1="132" x2="566" y2="132" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <!-- self loop on navigate -->
+      <path d="M282,112 C282,80 348,80 348,112" fill="none" stroke="var(--fades)" marker-end="url(#a3)"/>
+      <text class="svg-note" x="315" y="98" text-anchor="middle" fill="var(--fades)">descend · ascend · lateral</text>
+
+      <!-- return -->
+      <path d="M616,156 C616,206 63,206 63,156" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-dasharray="4 3" marker-end="url(#a3)"/>
+      <text class="svg-note" x="340" y="200" text-anchor="middle">finish() — touch · splay · ปิด WalkPath</text>
+
+      <!-- budget rails -->
+      <line x1="260" y1="170" x2="370" y2="170" stroke="var(--fades)" stroke-width="2"/>
+      <text class="svg-note" x="315" y="184" text-anchor="middle" fill="var(--fades)">recall_ops_budget</text>
+      <line x1="410" y1="170" x2="530" y2="170" stroke="var(--fades)" stroke-width="2"/>
+      <text class="svg-note" x="470" y="184" text-anchor="middle" fill="var(--fades)">context_budget_tokens</text>
+
+      <text class="svg-note" x="20" y="240">เข้า CUE แล้วเลือกจุดเข้าที่ชั้น general event (ไม่ใช่ราก) — คิดเป็น 1 op เพราะ “ช่วงไหนนะ?” คือการทำงานจริง</text>
+      <text class="svg-note" x="20" y="258">ระหว่างเดิน tree เป็น read-only ทั้งหมด → ทิ้งการเดินกลางคันได้ และ replay ถูกเป๊ะ</text>
+      <text class="svg-note" x="20" y="276">มี fast path ที่เดิน greedy เองโดยไม่แตะ LLM เสมอ — ใช้ตอนไม่ถามโมเดล และตอน model bus ล่ม</text>
+    </svg>
+    <figcaption>
+      แต่ละสถานะแยกออกมาเพราะมีเหตุผล: <code>RESIDENT</code> แยกจาก <code>NAVIGATE</code> เพื่อไม่ให้
+      “มันอยู่แล้ว” กับ “ไปหามา” ถูกคิดเงินเท่ากัน · <code>NAVIGATE</code> เป็นที่เดียวที่ใช้ ops
+      เพดานจึงบังคับได้ที่จุดเดียว · <code>MATERIALIZE</code> เป็นที่เดียวที่แตะข้อความได้ (invariant V2)
+      · <code>SETTLE</code> รวม side effect ไว้ที่เดียว
+      <strong>เส้นทางที่เดินคือคำอธิบาย</strong> — <code>explain()</code> จึงได้มาฟรี ไม่ต้องสร้างระบบ trace แยก
+    </figcaption>
+  </figure>
+
+  <h3>State machine ของความตั้งใจ</h3>
+  <figure>
+    <svg viewBox="0 0 700 210" role="img" aria-label="State machine ของ trigger: ARMED ยิงไปเป็น FIRED แล้วกลับเป็น ARMED ถ้าทำซ้ำได้ หรือไป SUSPENDED ถ้าทำไม่สำเร็จ หรือ RETIRED ถ้าจบ">
+      <defs>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <rect x="40"  y="70" width="104" height="42" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="svg-title" x="92" y="96" text-anchor="middle" fill="var(--holds)">ARMED</text>
+
+      <rect x="248" y="70" width="104" height="42" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".5"/>
+      <text class="svg-title" x="300" y="96" text-anchor="middle">FIRED</text>
+
+      <rect x="448" y="18" width="128" height="42" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="svg-title" x="512" y="44" text-anchor="middle" fill="var(--fades)">SUSPENDED</text>
+
+      <rect x="448" y="122" width="128" height="42" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".35"/>
+      <text class="svg-title" x="512" y="148" text-anchor="middle">RETIRED</text>
+
+      <line x1="144" y1="91" x2="244" y2="91" stroke="currentColor" marker-end="url(#a4)"/>
+      <text class="svg-note" x="194" y="82" text-anchor="middle">เงื่อนไขตรง</text>
+
+      <line x1="352" y1="82" x2="444" y2="46" stroke="var(--fades)" marker-end="url(#a4)"/>
+      <text class="svg-note" x="398" y="56" text-anchor="middle" fill="var(--fades)">ทำไม่สำเร็จ</text>
+
+      <line x1="352" y1="100" x2="444" y2="138" stroke="currentColor" marker-end="url(#a4)"/>
+      <text class="svg-note" x="400" y="130" text-anchor="middle">ทำเสร็จ · ครั้งเดียวจบ</text>
+
+      <path d="M300,70 C300,26 160,26 100,64" fill="none" stroke="var(--holds)" marker-end="url(#a4)"/>
+      <text class="svg-note" x="200" y="30" text-anchor="middle" fill="var(--holds)">ทำเสร็จ · ถ้าเป็นแบบซ้ำได้</text>
+
+      <path d="M512,18 C512,-4 92,-2 92,64" fill="none" stroke="var(--fades)" stroke-dasharray="4 3" marker-end="url(#a4)"/>
+      <text class="svg-note" x="512" y="76" text-anchor="middle" fill="var(--fades)">★ ยังผุดขึ้นเองได้</text>
+
+      <text class="svg-note" x="40" y="186">SUSPENDED ไม่ใช่สถานะที่คิดเอง — งานวิจัย prospective memory พบว่าความตั้งใจที่ค้างยังผุดขึ้นเอง ส่วนที่จบแล้วไม่ผุด</text>
+      <text class="svg-note" x="40" y="202">registry ที่มีแค่ armed/retired จะไม่ยิงซ้ำของที่ค้าง หรือไม่ก็ยิงซ้ำของที่เสร็จแล้ว</text>
+    </svg>
+    <figcaption>
+      สามชนิดของ trigger มีต้นทุนไม่เท่ากันโดยตั้งใจ ตาม multiprocess theory:
+      <span class="pill hold">event · 0 ops</span> <span class="pill hold">time · 0 ops</span>
+      <span class="pill fade">predicate · 1 op ต่อเงื่อนไขต่อการเช็ค</span>
+      — “เดี๋ยวเจอ X แล้วทำ Y” ไม่กินอะไรระหว่างรอ ส่วน “ถ้า mood ตกให้พัก” ต้องเฝ้า ซึ่งแพงจริงในคนด้วย
+      cost model จึงสะท้อนต้นทุนทางปัญญาจริง ไม่ใช่ตัวเลขที่ตั้งขึ้นลอย ๆ
+    </figcaption>
+  </figure>
+
+  <h3>วงจร consolidation — “การนอน”</h3>
+  <figure>
+    <svg viewBox="0 0 700 150" role="img" aria-label="วงจร consolidation สี่เฟส: REPLAY, ABSTRACT, REBALANCE, ENFORCE โดย ABSTRACT ต้องมาก่อน ENFORCE">
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <rect x="18"  y="34" width="128" height="46" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="svg-title" x="82" y="54" text-anchor="middle">REPLAY</text>
+      <text class="svg-note"  x="82" y="70" text-anchor="middle">สุ่มสลับ ไม่เรียงตามหัวข้อ</text>
+
+      <rect x="180" y="34" width="140" height="46" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="svg-title" x="250" y="54" text-anchor="middle" fill="var(--holds)">ABSTRACT</text>
+      <text class="svg-note"  x="250" y="70" text-anchor="middle">ซ้ำ → นิสัย</text>
+
+      <rect x="354" y="34" width="140" height="46" rx="3" fill="var(--surface-alt)" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="svg-title" x="424" y="54" text-anchor="middle">REBALANCE</text>
+      <text class="svg-note"  x="424" y="70" text-anchor="middle">แตก node ที่กว้างเกิน beam</text>
+
+      <rect x="528" y="34" width="140" height="46" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="svg-title" x="598" y="54" text-anchor="middle" fill="var(--fades)">ENFORCE</text>
+      <text class="svg-note"  x="598" y="70" text-anchor="middle">บังคับ store_budget</text>
+
+      <line x1="146" y1="57" x2="176" y2="57" stroke="currentColor" marker-end="url(#a5)"/>
+      <line x1="320" y1="57" x2="350" y2="57" stroke="currentColor" marker-end="url(#a5)"/>
+      <line x1="494" y1="57" x2="524" y2="57" stroke="currentColor" marker-end="url(#a5)"/>
+      <path d="M598,80 C598,116 82,116 82,84" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-dasharray="4 3" marker-end="url(#a5)"/>
+      <text class="svg-note" x="340" y="112" text-anchor="middle">ทุก N tick หรือคลังใกล้เต็ม</text>
+
+      <text class="svg-note" x="18" y="140">ลำดับมีข้อโต้แย้งอยู่ในตัว: ABSTRACT ต้องมาก่อน ENFORCE ไม่งั้น budget ที่ตึงจะไม่ได้แค่ทำให้เสียรายละเอียด แต่ทำให้ agent เรียนรู้ว่าตัวเองเป็นใครไม่ได้</text>
+    </svg>
+    <figcaption>
+      Batch ไม่ใช่เรื่องประหยัดค่า LLM — Complementary Learning Systems (McClelland et al. 1995)
+      อธิบายว่าระบบที่สกัดโครงสร้างต้องเรียนช้าและจากตัวอย่างที่สลับกัน ไม่งั้นเกิด catastrophic interference
+      ถ้า abstract ทุก observation <em class="hl">บุคลิกของ agent จะสั่นทุกบทสนทนา</em>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="num">05</span>รันทั้งระบบ 200 วัน</h2>
+  <p class="lede">
+    ทุกโมดูลผ่าน test ของตัวเอง แต่นั่นไม่พอ — การเอาทั้งห้าตัวมารันด้วยกันสองร้อยวันจำลอง
+    เจอบั๊กสี่ตัวที่ unit test มองไม่เห็น <strong>เพราะทุกตัวต้องใช้สองโมดูลที่เข้าใจ address เดียวกันไม่ตรงกัน</strong>
+  </p>
+
+  <div class="scroll">
+  <table>
+    <caption>601 ความทรงจำ · คลัง 96KB ≈ ¼ ของที่ต้องใช้จริง · 0.65 วินาที · <span class="mono">somaos/bench/experiments/agent_life.py</span></caption>
+    <thead><tr><th>สิ่งที่ถาม</th><th>ผล</th></tr></thead>
+    <tbody>
+      <tr><td>ทุก address ยัง resolve ได้ไหม</td><td><span class="pill hold">ครบทั้ง 601</span></td></tr>
+      <tr><td>คลังเคยเกิน budget หลังจบ cycle ไหม</td><td><span class="pill hold">ไม่เคย</span></td></tr>
+      <tr><td>นิสัยที่เกิดขึ้นเอง</td><td><span class="mono">coffee + inbox (21×)</span> · <span class="mono">river + walk (21×)</span> — จากกิจวัตร ไม่ใช่จากเรื่องจร</td></tr>
+      <tr><td>วันที่ agent กลับไปนึกถึงบ่อย</td><td>ยัง <span class="mono">D1_INT8</span> · fidelity 1.0 · <span class="pill hold">การเดินแบบเย็น ๆ ยังหาเจอ</span></td></tr>
+      <tr><td>วันที่ไม่เคยกลับไปนึกถึงเลย</td><td>ตกลง <span class="mono">D2_BINARY</span> · ยัง resolve ได้ · ยังชี้หัวข้อตัวเองถูก 0.495</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>บั๊กสี่ตัว — ทุกตัวจบลงที่ loop เก็บกวาดที่ไม่มีวันจบ</h3>
+  <ul class="plain">
+    <li><strong>address ที่ปลดระวางแล้วกลับมามีชีวิต</strong> — consolidation คำนวณนิสัยใหม่ทุกรอบแล้วเช็คว่ามีในต้นไม้หรือยัง
+      แต่พอนิสัยถูกเจือจาง address เดิมไม่ได้ชี้ node ที่มีชีวิตแล้วทั้งที่ยัง forward อยู่ → อ่านว่า “ใหม่” แล้วใส่ทับที่เดิม
+      ผลคือ address เดียวมีทั้งตัวที่มีชีวิตและตัวที่ถูก forward — <code>resolve()</code> ตอบตัวหนึ่ง ส่วนที่เหลือทำงานกับอีกตัว</li>
+    <li><strong>node เป็นบรรพบุรุษของตัวเอง</strong> — สอง node ที่มาบรรจบที่เนื้อหาเดียวกันเป็นเรื่องปกติ (และตอนนี้ยุบรวมกัน:
+      พอสองความทรงจำจางจนแทนกันได้ มันคือความทรงจำเดียวกันแล้ว) แต่ถ้าตัวที่ชนอยู่ <em>ใต้</em> ตัวที่กำลังถูกแทน การยุบจะปิดวง</li>
+    <li><strong>D3 เขียนทับเวกเตอร์ของแม่</strong> — ฟังดูถูก แต่วัดแล้วไม่ได้อะไร (แม่อยู่กลาง cluster ตัวเองอยู่แล้ว)
+      สิ่งที่มันซื้อมาคือ address ของบรรพบุรุษเปลี่ยนทุกครั้งที่ยุบ พร้อม alias chain และ collision ข้างบนทั้งหมด
+      <strong>ยกเลิกแล้ว</strong> — <em class="hl">ความซับซ้อนที่แลกความถูกต้องมาโดยไม่คืนอะไรที่วัดได้ ไม่ใช่ trade-off</em></li>
+    <li><strong>การนึกซ้ำไม่ป้องกันการเจือจาง</strong> — <code>retrieval_strength</code> เสื่อมตามเวลา
+      การเรียงเหยื่อด้วยมันอย่างเดียวทำให้ความทรงจำที่ถูกนึกถึงสิบกว่าครั้งถูกยุบทิ้งเมื่อของรอบตัวหมด
+      <code>use_count</code> ไม่เสื่อม — ในภาษาของ Bjork นั่นคือ storage strength และการดึงกลับมาใช้ทำให้มันเพิ่ม
+      <strong>ของที่นึกถึงบ่อยจึงไม่ใช่แค่หาง่ายขึ้น แต่หายยากขึ้นด้วย</strong></li>
+  </ul>
+
+  <div class="note">
+    <span class="tag">และการยุติของ loop ไม่ใช่เรื่องบังเอิญอีกต่อไป</span>
+    <p>
+      ทุกก้าวของการเก็บกวาดต้อง <strong>คืนไบต์ หรือปลดระวาง node ที่มันทำงานด้วย</strong>
+      ก้าวที่ไม่ทำทั้งสองอย่างจะถูกเลือกซ้ำทันทีและตลอดไป จึงถูกกันออกไป
+      → บั๊กใน rung หนึ่งเสียแค่หนึ่งก้าว ไม่ใช่ทำให้ agent ค้าง
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">06</span>สิ่งที่ผมเปลี่ยนใจ และบั๊กที่ test จับได้</h2>
+  <p class="lede">
+    ส่วนนี้สำคัญกว่ารายการงานที่เสร็จ — ทุกข้อคือของที่ถ้าไม่เจอ จะกลายเป็นระบบที่มั่นใจในสิ่งที่ผิด
+  </p>
+
+  <ul class="plain">
+    <li><strong>บันไดเดิมผิด</strong> — ร่างแรกมี “ลดมิติ” และวาง binary ท้ายสุด วัดแล้วเห็นว่าทั้งคู่ผิด แก้ตามผลวัด (§03)</li>
+    <li><strong>จุดเข้าของการเดินอยู่ผิดที่</strong> — ร่างแรกให้เริ่มจากราก Conway ชี้ว่าคนเริ่มที่ชั้น general event
+      ทั้งถูกกว่าเชิงหลักฐานและถูกกว่าเชิงต้นทุน (ชั้นบนแยกแยะอะไรไม่ค่อยได้)</li>
+    <li><strong>D3 ไม่ได้ทำตามสเปกตัวเอง</strong> — มันลบ node แล้วชี้ต่อ แต่ไม่เคยยุบเวกเตอร์เข้า centroid ของแม่จริง
+      = การลบที่มี forwarding pointer เฉย ๆ แก้แล้ว และการแก้ทำให้ D4 มีงานจริงเป็นครั้งแรก</li>
+    <li><strong>fidelity รายงานสูงกว่าความจริง</strong> — เก็บค่าสะสมต่อ address ทำให้ hop แรก (int8 แทบไม่เสีย)
+      ถูกรายงานแทน address ที่ผ่าน binary ไปแล้ว ตอนนี้เก็บ cosine ต่อ hop แล้ว compose ตอนอ่าน
+      เพราะสองขั้นที่เก็บได้ 0.9 ต่อขั้น ไม่ได้เก็บ 0.9 รวมกัน</li>
+    <li><strong>บันไดกับ D3 อีกรอบ</strong> — ดู §05 ทั้งหัวข้อ ทุกข้อมาจากการรันทั้งระบบ ไม่ใช่จาก unit test</li>
+    <li><strong>consolidation ตกผลึกผิดตัวสนิท</strong> — รอบแรกมันสร้างนิสัยจากกองงานสะเปะสะปะ 5 อย่างใต้หัวข้อเดียวกัน
+      แล้วพลาดกิจวัตรที่ทำซ้ำ 6 วันจริง ๆ สองสาเหตุ: content addressing ยุบเหตุการณ์ที่เหมือนกันเป๊ะเหลือ node เดียว
+      (เลยนับเป็นครั้งเดียว) และ coherence ที่วัดกับ centroid ถูกดันสูงโดยหัวข้อของแม่เอง</li>
+  </ul>
+
+  <div class="note warn">
+    <span class="tag">ข้อจำกัดที่ต้องรายงานคู่กันเสมอ</span>
+    <p>
+      <code>Resolution.fidelity</code> เป็น <strong>ขอบล่างที่ปลอดภัย ไม่ใช่ค่าที่วัดได้</strong>
+      มันหลวมมากหลังหลายขั้น (อ่าน 0.0 ได้ทั้งที่เวกเตอร์ยังอยู่ใน cluster ถูก)
+      → ใช้ตัดสิน D3/D4 และลง audit log ได้ <strong>ห้ามรายงานเป็น M1</strong>
+      M1 ต้องวัดกับ ground truth ใน bench ตามบทเรียนเดิม: <em class="hl">ห้ามให้ component ตั้งราคาผลงานตัวเอง</em>
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">07</span>สถานะ Phase 0b</h2>
+  <div class="wps">
+    <div class="wp done"><span class="id">A0</span><span class="what">เขียน interfaces contract ใหม่จากโค้ดจริง</span><span class="st">เสร็จ</span></div>
+    <div class="wp done"><span class="id">A1</span><span class="what">memory core<small>เวกเตอร์ D0–D2 · content address · alias table</small></span><span class="st">34 tests</span></div>
+    <div class="wp done"><span class="id">A6</span><span class="what">embedding แบบ deterministic + interface สลับได้<small>อยู่ใน vector.py — สลับเป็นของจริงที่จุดเดียว</small></span><span class="st">เสร็จ</span></div>
+    <div class="wp done"><span class="id">A2</span><span class="what">dilution engine<small>บันได D0→D4 · บังคับ store_budget · audit log</small></span><span class="st">24 tests</span></div>
+    <div class="wp done"><span class="id">A3</span><span class="what">ต้นไม้ + แกนความลึก<small>retrieval strength · การเดินแบบมีเพดาน</small></span><span class="st">28 tests</span></div>
+    <div class="wp done"><span class="id">A4</span><span class="what">regions<small>CORE resident + quota · TRIGGER FSM สามชนิด</small></span><span class="st">27 tests</span></div>
+    <div class="wp done"><span class="id">A5</span><span class="what">recall FSM<small>6 สถานะ · 5 moves · WalkPath · fast path</small></span><span class="st">28 tests</span></div>
+    <div class="wp done"><span class="id">A7</span><span class="what">consolidation<small>replay → abstract → rebalance → enforce · ตกผลึกนิสัย</small></span><span class="st">23 tests</span></div>
+    <div class="wp done"><span class="id">—</span><span class="what">integration<small>รัน 5 โมดูลด้วยกัน 200 วัน — เจอบั๊ก 4 ตัวที่ unit test มองไม่เห็น</small></span><span class="st">12 tests</span></div>
+    <div class="wp todo"><span class="id">A8</span><span class="what">policy <code>S</code> ห่อ tree + dilution + recall ใต้ protocol เดิม</span><span class="st">ถัดไป</span></div>
+    <div class="wp todo"><span class="id">A9</span><span class="what">trace generator ใหม่ — query 4 ระดับ<small>รายละเอียด · แก่นของช่วงเวลา · นิสัย · trigger</small></span><span class="st">รอ</span></div>
+    <div class="wp todo"><span class="id">A10</span><span class="what">metric detail/gist แยกกัน + recall_ops + store_used</span><span class="st">รอ</span></div>
+    <div class="wp todo"><span class="id">A11</span><span class="what">baseline ใต้ store_budget เท่ากัน + <code>B2c</code></span><span class="st">รอ</span></div>
+    <div class="wp todo"><span class="id">A12</span><span class="what">pre-register KC1–KC5 + แบ่ง seed ชุดใหม่<small>ต้องเสร็จก่อน A13 เสมอ ห้ามสลับ</small></span><span class="st">รอ</span></div>
+    <div class="wp todo"><span class="id">A13</span><span class="what">รันเต็มสเกล วัด holdout ครั้งเดียว</span><span class="st">รอ</span></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">08</span>สามข้อที่ต้องให้ Nin เคาะ</h2>
+  <ol class="q">
+    <li>
+      <b>CORE เริ่มต้นมาจากไหน</b>
+      <p>เขียนมือตอนสร้าง agent (persona เริ่มต้น) แล้วให้ตกผลึกเพิ่มเอง หรือให้เกิดจากประสบการณ์ล้วน?
+      ตอนนี้ <code>CoreSet.admit()</code> รองรับทั้งสองทาง แต่ยังไม่ได้เลือก</p>
+    </li>
+    <li>
+      <b>branching factor และเกณฑ์แตก/ยุบ node</b>
+      <p>ตอนนี้ตั้ง <code>MAX_CHILDREN = 12</code> ไว้เป็น default พร้อมหมายเหตุว่าเป็นค่า calibration
+      — เป็นตัวที่กำหนดว่า beam มองไม่เห็นอะไรบ้าง <strong>บล็อกการ tune ของ A9–A11</strong></p>
+    </li>
+    <li>
+      <b>เกณฑ์การตกผลึกนิสัย</b>
+      <p>ตอนนี้ <code>MIN_REPEATS = 4</code> และ <code>COHERENCE = 0.55</code> ทั้งคู่เป็นค่าที่ตั้งเอง
+      ต้อง tune บน dev seed เท่านั้นตาม N-15 — ตั้งผิดแล้ว agent จะสร้างนิสัยจากเรื่องบังเอิญ
+      ซึ่งแก้ยากเพราะนิสัยเป็น resident และห้ามเจือจาง</p>
+    </li>
+  </ol>
+</section>
+
+<footer>
+  branch <span class="mono">claude/current-phase-progress-t8jqdr</span> · push แล้วทุก WP<br>
+  เอกสาร: <span class="mono">target_SomaOS.md</span> v2 ·
+  <span class="mono">plans/03_MEMORY_ARCHITECTURE.md</span> ·
+  <span class="mono">plans/04_HUMAN_MEMORY_BASIS.md</span> ·
+  <span class="mono">plans/02_INTERFACES.md</span> ·
+  <span class="mono">plans/01_DECISIONS.md</span> N-01..N-15<br>
+  รันเองได้: <span class="mono">python -m somaos.bench.experiments.capacity_curve</span> ·
+  <span class="mono">python -m somaos.bench.experiments.quantization_fidelity</span> ·
+  <span class="mono">pytest -q</span>
+</footer>
+
+</div>
