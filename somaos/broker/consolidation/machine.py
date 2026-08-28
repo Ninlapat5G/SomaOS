@@ -183,24 +183,30 @@ class ConsolidationMachine:
     def _abstract(self, tree: MemoryTree, *, tick: int) -> list[Crystallisation]:
         """Turn repetition into habit.
 
-        Three conditions, and every one of them was needed to stop this
-        promoting nonsense:
+        A habit is a pattern *within* experience, not a property of a whole
+        chapter. An earlier version required every child of a node to share
+        a key, which meant a routine only counted if nothing else had ever
+        happened under the same topic -- and since routines and one-off
+        events naturally sit side by side, it found nothing at all. The
+        tree crystallised no habits and scored zero on "what does this
+        person usually do" while the flat baselines scored one, purely
+        because they kept the instances around.
 
-        1. It happened often enough. Counted in *occurrences*, not distinct
-           children: doing exactly the same thing six mornings running
-           dedupes to one node, and counting children would score that as
-           one event while scoring six unrelated errands as six.
+        So candidates are coherent *subsets*: the same thing lived through
+        many times, which content addressing has already collapsed into one
+        node with a high occurrence count, and groups of near-identical
+        siblings. Each has to clear three bars, and every one of them was
+        needed to stop this promoting nonsense:
 
+        1. It happened often enough, counted in occurrences rather than
+           distinct nodes -- doing exactly the same thing forty mornings
+           dedupes to one node, and counting nodes would score that as one.
         2. The occurrences resemble each other beyond resembling their
-           parent. Similarity to the group centroid alone is not enough --
-           every child of "mornings" is about mornings, so any grab-bag
-           under a shared topic scores high. Coherence is therefore measured
-           on what is left after the parent's direction is projected out:
-           are these the same thing, or merely the same subject?
-
-        3. They share something the parent does not already say. A habit
-           whose only shared key is its parent's topic is not a habit, it is
-           the topic.
+           parent. Every child of "mornings" is about mornings, so a
+           grab-bag under a shared topic scores high on raw similarity;
+           coherence is measured with the parent's direction projected out.
+        3. They share something the parent does not already say. A group
+           whose only commonality is its subject is the subject.
         """
         out: list[Crystallisation] = []
         for parent in tree.region_members(Region.ARCHIVE):
@@ -213,48 +219,78 @@ class ConsolidationMachine:
             ]
             if not children:
                 continue
-            occurrences = sum(tree.occurrences(c.addr) for c in children)
-            if occurrences < self.min_repeats:
-                continue
 
-            shared = tuple(k for k in _shared_keys(children) if k not in set(node.keys))
-            if not shared:
-                continue
-
-            coherence = _coherence(children, against=node.vec)
-            if coherence < self.coherence:
-                continue
-            centroid = _centroid(children)
-            habit = make_node(
-                region=Region.SKILL,
-                level=int(CoreLevel.ADAPTATION),
-                vec=centroid,
-                keys=shared,
-                n_merged=occurrences,
-                span=(min(c.span[0] for c in children), max(c.span[1] for c in children)),
-                text_ref=f"habit: {' + '.join(shared)} ({occurrences}x)",
-                raw_refs=tuple(c.addr for c in children),
-            )
-            # Already crystallised? Content addressing answers that for free
-            # -- but the habit may since have been diluted, in which case its
-            # original address no longer names a live node while still
-            # resolving to the faded one. Checking the tree alone would call
-            # it new every cycle and re-crystallise it forever.
-            if habit.addr in tree or tree.alias.resolve(habit.addr) != habit.addr:
-                continue
-            addr = tree.insert(habit, tick=tick)
-            out.append(Crystallisation(
-                addr=addr, region=Region.SKILL.name, keys=shared,
-                from_addrs=tuple(c.addr for c in children),
-                coherence=coherence, occurrences=occurrences,
-            ))
-
-            promoted = self._promote_to_core(
-                tree, shared, centroid, occurrences, habit.span, addr, tick
-            )
-            if promoted is not None:
-                out.append(promoted)
+            for group in self._habit_candidates(tree, children):
+                crystal = self._crystallise(tree, node, group, tick)
+                if crystal is None:
+                    continue
+                out.append(crystal)
+                promoted = self._promote_to_core(
+                    tree, tuple(crystal.keys), _centroid(group),
+                    crystal.occurrences,
+                    (min(c.span[0] for c in group), max(c.span[1] for c in group)),
+                    crystal.addr, tick,
+                )
+                if promoted is not None:
+                    out.append(promoted)
         return out
+
+    def _habit_candidates(self, tree, children) -> list[list[MemoryNode]]:
+        """Subsets of a node's children that might be a habit.
+
+        A single node lived through many times is the commonest shape and
+        is a candidate on its own. Beyond that, groups of siblings that
+        resemble each other -- several variations on one routine -- are
+        candidates too, so a habit does not have to be byte-identical every
+        time to be noticed.
+        """
+        candidates: list[list[MemoryNode]] = []
+        for child in children:
+            if tree.occurrences(child.addr) >= self.min_repeats:
+                candidates.append([child])
+        if len(children) >= self.min_repeats:
+            for group in self._group(children):
+                if len(group) >= self.min_repeats:
+                    candidates.append(group)
+        return candidates
+
+    def _crystallise(self, tree, parent, group, tick) -> Crystallisation | None:
+        occurrences = sum(tree.occurrences(c.addr) for c in group)
+        if occurrences < self.min_repeats:
+            return None
+
+        shared = tuple(
+            k for k in _shared_keys(group) if k not in set(parent.keys)
+        )
+        if not shared:
+            return None
+        if _coherence(group, against=parent.vec) < self.coherence:
+            return None
+
+        centroid = _centroid(group)
+        habit = make_node(
+            region=Region.SKILL,
+            level=int(CoreLevel.ADAPTATION),
+            vec=centroid,
+            keys=shared,
+            n_merged=occurrences,
+            span=(min(c.span[0] for c in group), max(c.span[1] for c in group)),
+            text_ref=f"habit: {' + '.join(shared)} ({occurrences}x)",
+            raw_refs=tuple(c.addr for c in group),
+        )
+        # Already crystallised? Content addressing answers that for free --
+        # but the habit may since have been diluted, in which case its
+        # original address no longer names a live node while still
+        # resolving to the faded one. Checking the tree alone would call it
+        # new every cycle and re-crystallise it forever.
+        if habit.addr in tree or tree.alias.resolve(habit.addr) != habit.addr:
+            return None
+        addr = tree.insert(habit, tick=tick)
+        return Crystallisation(
+            addr=addr, region=Region.SKILL.name, keys=shared,
+            from_addrs=tuple(c.addr for c in group),
+            coherence=_coherence(group, against=parent.vec), occurrences=occurrences,
+        )
 
     def _promote_to_core(
         self, tree, shared, centroid, occurrences, span, from_addr, tick

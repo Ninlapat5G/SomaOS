@@ -359,3 +359,36 @@ def test_an_agent_can_beat_the_fast_path_when_it_knows_where_to_look():
 
     assert any(target_topic in n.keys for n in guided_nodes)
     assert not any(target_topic in n.keys for n in fast_nodes)
+
+
+def test_a_habit_is_called_up_by_the_situation_not_searched_for():
+    """Squire's dissociation, in the routing.
+
+    H.M. could not form new episodes and still got better at a skill every
+    day, so procedural recall does not run through episodic search. Routing
+    it through the ARCHIVE walk would model the one arrangement the patient
+    data rules out -- and it measured as such: the tree crystallised habits
+    correctly and then scored zero on "what does this person usually do",
+    because nothing could reach them.
+    """
+    tree = _forest()
+    habit = tree.insert(make_node(
+        region=Region.SKILL, level=1, vec=embed(("coffee", "desk")),
+        keys=("coffee", "desk"), text_ref="habit: coffee + desk",
+    ))
+    machine = RecallMachine(tree)
+    machine.begin(topics=("coffee",), tick=5)
+    result = machine.finish()
+    assert habit in {n.addr for n in result.nodes}
+    assert machine.path.ops_used <= 1  # the entry choice only; the habit was free
+
+
+def test_an_unrelated_situation_does_not_call_up_the_habit():
+    tree = _forest()
+    tree.insert(make_node(
+        region=Region.SKILL, level=1, vec=embed(("coffee", "desk")),
+        keys=("coffee", "desk"),
+    ))
+    machine = RecallMachine(tree)
+    machine.begin(topics=("topic0",), tick=5)
+    assert all(n.region is not Region.SKILL for n in machine.finish().nodes)

@@ -17,9 +17,10 @@ Why a state machine and not one function:
     CUE          the single place the outside world gets in, so input is
                  validated once, and the entry point is chosen -- at the
                  general-event level, following Conway, not at the root.
-    RESIDENT     identity and fired intentions, which are already in hand.
-                 Kept separate from NAVIGATE so that "it was already there"
-                 and "I went and found it" do not get charged the same.
+    RESIDENT     identity, fired intentions, and any procedure the
+                 situation itself calls up. Kept separate from NAVIGATE so
+                 that "it was already there" and "I went and found it" do
+                 not get charged the same.
     NAVIGATE     the only state that spends recall_ops, so the ceiling is
                  enforced in exactly one place.
     MATERIALIZE  the only state that spends context tokens and the only
@@ -180,6 +181,19 @@ class RecallMachine:
         ``resident`` is what is already in context -- identity, and any
         intention that just fired. It is admitted without spending a single
         op, because it was never searched for.
+
+        Procedures come in the same way, and this is not a shortcut. A
+        habit is a context-response association: seeing the situation is
+        what produces it, with no search through episodic memory and no
+        detour through what you were trying to achieve. Squire's
+        dissociation is the evidence -- H.M. could not form new episodes
+        and still got better at a skill every day -- so routing procedural
+        recall through the ARCHIVE walk would model the one arrangement the
+        patient data rules out. It is a keyed lookup, so it costs no ops.
+
+        Leaving this out was measurable: the tree crystallised habits
+        correctly and then scored zero on "what does this person usually
+        do", because nothing could reach them.
         """
         self.path = WalkPath()
         self._cue = cue_vector(tuple(topics), tuple(entities))
@@ -189,7 +203,9 @@ class RecallMachine:
         self._visited = []
         self.state = RecallState.CUE
 
-        self._resident = tuple(resident)
+        self._resident = tuple(resident) + self._cued_procedures(
+            tuple(topics) + tuple(entities), exclude=set(resident)
+        )
         self._resident_tokens = sum(
             self.tokens_of(self.tree.resolve(addr).node) for addr in self._resident
         )
@@ -234,6 +250,24 @@ class RecallMachine:
         )
         self.state = RecallState.NAVIGATE
         return self.state
+
+    def _cued_procedures(self, cue_keys, *, exclude: set[str]) -> tuple[str, ...]:
+        """Procedures whose situation the cue names. O(1) per key, no ops.
+
+        Indexed by key rather than by similarity on purpose: similarity
+        answers "what is this about", and a habit is not retrieved by
+        being on-topic. It fires because the situation matches.
+        """
+        found: list[str] = []
+        for key in cue_keys:
+            for addr in self.tree.by_key(key):
+                node = self.tree.get(addr)
+                if node is None or node.region is not Region.SKILL:
+                    continue
+                if addr in exclude or addr in found:
+                    continue
+                found.append(addr)
+        return tuple(sorted(found))
 
     def _counted(self, addrs):
         """Charge the tree's comparison counter for choosing an entry point.

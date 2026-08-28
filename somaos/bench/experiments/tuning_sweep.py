@@ -47,18 +47,25 @@ def probe(tree, key, target, ops=32):
     r.finish()
     return hit, tree.comparisons, steps
 
-for N in (120, 600):
-    print(f"=== คลัง {N} ความทรงจำ · beam=4 ===")
-    print(f"{'MAX_CHILDREN':>13} {'ลูกมากสุด':>10} {'ลึกสุด':>7} {'หาเจอ':>7} "
-          f"{'เทียบเวกเตอร์':>14} {'ก้าวที่เดิน':>11}")
-    for mc in (4, 8, 12, 24, 48, N):
-        tree, targets = build(N, mc)
-        kids = max(len(tree.children_of(x)) for x in tree.region_members(Region.ARCHIVE))
-        depths = [tree.depth_of(a) for a, _ in targets if a in tree]
-        res = [probe(tree, k, a) for a, k in targets[:50]]
-        hits = np.mean([r[0] for r in res]); comps = np.mean([r[1] for r in res])
-        steps = np.mean([r[2] for r in res])
-        label = f"{mc} (แบน)" if mc == N else str(mc)
-        print(f"{label:>13} {kids:>10} {max(depths):>7} {100*hits:>6.0f}% "
-              f"{comps:>14.0f} {steps:>11.1f}")
-    print()
+def main() -> int:
+    for N in (120, 600):
+        print(f"=== คลัง {N} ความทรงจำ · beam=4 ===")
+        print(f"{'MAX_CHILDREN':>13} {'ลูกมากสุด':>10} {'ลึกสุด':>7} {'หาเจอ':>7} "
+              f"{'เทียบเวกเตอร์':>14} {'ก้าวที่เดิน':>11}")
+        for mc in (4, 8, 12, 24, 48, N):
+            tree, targets = build(N, mc)
+            kids = max(len(tree.children_of(x)) for x in tree.region_members(Region.ARCHIVE))
+            depths = [tree.depth_of(a) for a, _ in targets if a in tree]
+            res = [probe(tree, k, a) for a, k in targets[:50]]
+            hits = np.mean([r[0] for r in res]); comps = np.mean([r[1] for r in res])
+            steps = np.mean([r[2] for r in res])
+            label = f"{mc} (แบน)" if mc == N else str(mc)
+            print(f"{label:>13} {kids:>10} {max(depths):>7} {100*hits:>6.0f}% "
+                  f"{comps:>14.0f} {steps:>11.1f}")
+        print()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

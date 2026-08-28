@@ -431,3 +431,32 @@ def test_a_full_identity_leaves_the_pattern_as_a_habit():
     assert {c.region for c in report.crystallised} == {"SKILL"}
     assert core.emerged() == ()
     assert len(core.seeded()) == 1
+
+
+def test_a_routine_is_found_even_when_one_off_events_share_its_topic():
+    """A habit is a pattern within experience, not a property of a chapter.
+
+    Requiring every child of a node to share a key meant a routine only
+    counted if nothing else had ever happened under the same topic. Since
+    routines and one-off events naturally sit side by side, that found
+    nothing at all -- measured as the tree scoring zero on habit questions
+    while the flat baselines scored one, purely by keeping the instances.
+    """
+    tree = MemoryTree()
+    parent = _general(tree, "mornings")
+    for tick in range(8):  # the routine, identical each time
+        _episode(tree, parent, ("mornings", "coffee", "desk"), tick)
+    for tick in range(8):  # and unrelated things, same topic
+        _episode(tree, parent, ("mornings", f"errand{tick}"), tick)
+
+    report = _machine().run(tree, tick=20)
+    habits = {tuple(c.keys) for c in report.crystallised if c.region == "SKILL"}
+    assert ("coffee", "desk") in habits
+
+
+def test_a_topic_full_of_unrelated_events_still_yields_no_habit():
+    tree = MemoryTree()
+    parent = _general(tree, "misc")
+    for tick in range(12):
+        _episode(tree, parent, ("misc", f"thing{tick}"), tick)
+    assert _machine().run(tree, tick=20).crystallised == []
