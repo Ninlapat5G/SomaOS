@@ -1,6 +1,6 @@
 # plan.md — แผนงานและสถานะ
 
-> อัปเดตล่าสุด: 2026-08-28 — **เริ่ม Phase 0b (ออกแบบใหม่ทั้งหมด)**
+> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: โครงสร้างหน่วยความจำสร้างเสร็จแล้ว (A1–A5) · 504 tests ผ่าน**
 > ดีไซน์เก่า (surprise-gated encoding) ถูกยกเลิก — ผลการวัดเก็บที่ `plans/ARCHIVE_PHASE0_RESULT.md`
 
 ---
@@ -22,17 +22,30 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 
 ## 1. สถานะ
 
-### 1.1 เอกสาร (รอบนี้)
+### 1.1 เอกสาร
 - [x] `plans/ARCHIVE_PHASE0_RESULT.md` — เก็บผลการวัดของรอบเก่าไว้เป็นหลักฐาน
 - [x] `target_SomaOS.md` **v2** — เขียนทับทั้งฉบับ (thesis, moat, memory model, kill criteria ใหม่)
-- [x] `plans/03_MEMORY_ARCHITECTURE.md` — สเปกโครงสร้างหน่วยความจำเต็ม
+- [x] `plans/03_MEMORY_ARCHITECTURE.md` **v2.1** — สเปกเต็ม + แก้บันไดตามผลวัดจริง
+- [x] `plans/04_HUMAN_MEMORY_BASIS.md` — พื้นฐานจากงานวิจัยความจำมนุษย์ → โครงสร้าง tree
 - [x] `plans/01_DECISIONS.md` — N-01..N-15 แทนที่ D-01..D-14 ทั้งชุด
+- [x] `plans/02_INTERFACES.md` — เขียนใหม่จากโค้ดที่สร้างจริงแล้ว
 - [x] `CLAUDE.md` — อัปเดตสถานะและกฎ
-- [ ] `plans/02_INTERFACES.md` — ยังเป็นของเก่า **ต้องเขียนใหม่ก่อนเริ่มโค้ด**
 - [ ] `plans/00_PHASE0_MASTER_PLAN.md` — ยังเป็นของเก่า ต้องเขียนใหม่เป็น master plan ของ 0b
 
-### 1.2 โค้ด — ยังไม่แตะ (ตั้งใจ)
-รอเคาะคำถามใน §3 ก่อน
+### 1.2 โค้ดใหม่ที่สร้างแล้ว ✅
+
+| WP | โมดูล | test | สาระ |
+|---|---|---|---|
+| **A1** | `broker/memory/{vector,address,node}.py` | 34 | เวกเตอร์ D0–D2 · content address · alias table |
+| **A2** | `broker/dilution/engine.py` | 24 | บันได D0→D4 · บังคับ `store_budget_bytes` · audit log |
+| **A3** | `broker/memory/tree.py` | 28 | ต้นไม้ · แกนความลึก (retrieval strength) · เดินแบบมีเพดาน |
+| **A4** | `broker/regions/{core,trigger}.py` | 27 | CORE resident + quota · TRIGGER FSM 3 ชนิด |
+| **A5** | `broker/recall/machine.py` | 28 | FSM 6 สถานะ · 5 moves · WalkPath · fast path |
+| — | `bench/experiments/` | — | `quantization_fidelity.py` · `capacity_curve.py` |
+
+**รวม 504 tests ผ่านทั้งหมด** (เดิม 394 + ใหม่ 141 − ที่เลิกใช้)
+
+### 1.3 โค้ดเก่าที่ยังไม่แตะ
 
 | ชิ้น | ชะตากรรม |
 |---|---|
@@ -52,33 +65,63 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 
 ## 2. แผน Phase 0b
 
-| WP | งาน | ผลลัพธ์ที่ตรวจได้ |
-|---|---|---|
-| **WP-A0** | เขียน `02_INTERFACES.md` + master plan ของ 0b ใหม่ | contract นิ่งก่อนเขียนโค้ด |
-| **WP-A1** | `broker/memory/` — node, content address, alias table, ต้นไม้ | I1 (`resolve` ไม่เคยคืน None), I5 |
-| **WP-A2** | `broker/dilution/` — บันได D0→D4, บังคับ `store_budget` | I2, I7 (`fidelity` ลดทางเดียว) |
-| **WP-A3** | splay promote/sink — แกนความลึก | ของที่ใช้บ่อยตื้นขึ้นจริง วัดเป็น depth histogram |
-| **WP-A4** | `broker/regions/` — CORE / TRIGGER / SKILL / ARCHIVE + hard quota | I4 (CORE/TRIGGER ไม่เคยเจือจาง) |
-| **WP-A5** | `broker/recall/` — FSM + fast path + `WalkPath` | I6 (ไม่มี O(N)), I8 (มีเส้นทางเสมอ) |
-| **WP-A6** | embedding แบบ hash-based deterministic + interface ให้สลับได้ (N-13) | I3 (ลบข้อความแล้วเดินเหมือนเดิม) |
-| **WP-A7** | trace generator ใหม่ — query 4 ระดับ (N-12) | มี query ที่ทดสอบนิสัย/trigger จริง |
-| **WP-A8** | metrics ใหม่ — detail/gist แยกกัน + `recall_ops` + `store_used` | N-11 |
-| **WP-A9** | baseline ใต้ `store_budget` เท่ากัน + `B2c` (N-14) | การแข่งยุติธรรมเป็นครั้งแรก |
-| **WP-A10** | pre-register KC1–KC5 + แบ่ง seed ชุดใหม่ | ประกาศเกณฑ์ก่อนเห็นผล |
-| **WP-A11** | รันเต็มสเกล วัด holdout ครั้งเดียว | เส้นโค้ง M1–M3 |
+| WP | งาน | ผลลัพธ์ที่ตรวจได้ | สถานะ |
+|---|---|---|---|
+| **A0** | `02_INTERFACES.md` ใหม่ | contract นิ่งก่อนเขียนโค้ด | ✅ |
+| **A1** | `broker/memory/` — node, address, alias | I1, I5 | ✅ 34 tests |
+| **A6** | embedding hash-based + interface สลับได้ (N-13) | I3 | ✅ (อยู่ใน `vector.py`) |
+| **A2** | `broker/dilution/` — บันได D0→D4 | I2, I7 | ✅ 24 tests |
+| **A3** | ต้นไม้ + แกนความลึก | I6 · depth histogram | ✅ 28 tests |
+| **A4** | `broker/regions/` — CORE/TRIGGER + quota | I4 | ✅ 27 tests |
+| **A5** | `broker/recall/` — FSM + fast path + WalkPath | I6, I8 | ✅ 28 tests |
+| **A7** | consolidation FSM — REPLAY→ABSTRACT→REBALANCE→ENFORCE + ตกผลึกนิสัย | นิสัยโผล่ขึ้น CORE จริง | ⬜ |
+| **A8** | policy `S` ห่อ tree+dilution+recall ใต้ protocol เดิม | สลับผ่าน config ได้ | ⬜ |
+| **A9** | trace generator ใหม่ — query 4 ระดับ (N-12) | มี query ที่ทดสอบนิสัย/trigger | ⬜ |
+| **A10** | metric detail/gist แยกกัน + `recall_ops` + `store_used` (N-11) | วัดกับ ground truth | ⬜ |
+| **A11** | baseline ใต้ `store_budget` เท่ากัน + `B2c` (N-14) | การแข่งยุติธรรมเป็นครั้งแรก | ⬜ |
+| **A12** | pre-register KC1–KC5 + แบ่ง seed ชุดใหม่ | ประกาศเกณฑ์ก่อนเห็นผล | ⬜ |
+| **A13** | รันเต็มสเกล วัด holdout ครั้งเดียว | เส้นโค้ง M1–M3 | ⬜ |
 
-**ลำดับบังคับ:** A0 → (A1, A6 คู่กัน) → A2 → A3 → A4 → A5 → (A7, A8, A9) → A10 → A11
+**ลำดับที่เหลือ:** A7 → A8 → A9 → A10 → A11 → A12 → A13
+(A12 ต้องเสร็จ **ก่อน** A13 เสมอ — ประกาศเกณฑ์ก่อนเห็นผล ห้ามสลับ)
+
+### ผลเบื้องต้นที่เห็นแล้ว (smoke scale, ยังไม่ใช่การวัดจริง)
+
+`python -m somaos.bench.experiments.capacity_curve` — 96 ความทรงจำ ลดคลังจาก 200KB → 200B:
+
+| budget | ใช้จริง | detail | gist |
+|---|---|---|---|
+| 200,000 | 106,496 | 1.000 | 1.000 |
+| 20,000 | 19,904 | 0.938 | 1.000 |
+| 3,000 | 2,976 | 0.773 | 1.000 |
+| 500 | 480 | 0.517 | 1.000 |
+| 200 | 256 | 0.494 | 1.000 |
+
+**รายละเอียดจางลงเรื่อย ๆ แก่นอยู่ครบ ทุก address ยัง resolve ได้ทุกระดับ**
+= ลายเซ็นที่ M1 ต้องการ แต่ยังเป็นข้อมูลสังเคราะห์ที่ gist ง่ายเกินไป (มีแค่ 8 กลุ่มที่แยกกันชัด)
+**ตัวเลขจริงต้องมาจาก A13 เท่านั้น**
 
 ---
 
-## 3. คำถามที่ต้องเคาะก่อนเริ่ม WP-A1
+## 3. ที่ตัดสินไปแล้วระหว่างทาง (ทบทวนได้ ถ้าไม่เห็นด้วยบอกได้)
 
-1. **embedding แบบ hash-based ของ Phase 0b** — ยืนยัน N-13 ไหม (ผมแนะนำยืนยัน:
-   ทดสอบโครงสร้าง ไม่ใช่คุณภาพ embedding แต่ interface สลับได้)
-2. **`dim` และค่าบันได quantization** — เริ่มที่ `dim=256`, `D1=int8`, `D3` ลดเหลือ 64 มิติ?
-3. **branching factor `b`** ของต้นไม้ และเกณฑ์แตก/ยุบ node
-4. **`CORE` เริ่มต้นมาจากไหน** — เขียนมือตอนสร้าง agent (persona) แล้วให้ตกผลึกเพิ่มเอง?
-5. **`SKILL` แยกจาก `CORE` จริงไหม** หรือยุบเป็นภูมิภาคเดียวไปก่อนใน 0b
+1. **N-13 ยืนยัน** — embedding เป็น hash-based deterministic ใน 0b เพราะกำลังทดสอบ *โครงสร้าง*
+   ไม่ใช่ *คุณภาพ embedding* · interface สลับเป็นของจริงได้ที่ `vector.embed` จุดเดียว
+2. **`dim = 256`** — จากผลวัด §3.3 ของ `03` เป็นจุดที่ binary ยังชี้กลุ่มถูก 1.00
+3. **ตัด "ลดมิติ" ออกจากบันไดทั้งขั้น** — sign bit คือ SimHash, บิต = ขนาดตัวอย่างของการประมาณมุม
+   ลดมิติเสียความแม่นเร็วกว่าที่ประหยัด (ทั้งทฤษฎีและวัดแล้ว)
+4. **`COUNTER_FLOOR = 0.7`** — ต่ำกว่านี้ node จางเกินกว่าจะให้ไปดึง centroid ของแม่
+   **เป็นค่า calibration** ต้อง tune บน dev seed เท่านั้น (N-15)
+5. **`SKILL` แยกจาก `CORE`** — เพราะ index คนละแบบ: `CORE` resident เสมอ,
+   `SKILL` ดึงด้วย cue ของสถานการณ์ (งานฝั่ง habit ชี้ว่านิสัยเป็น context→response
+   ไม่ผ่านการคิดถึงเป้าหมาย) ยุบรวมกันจะทำให้ index ผิดชนิด
+
+## 3.1 ที่ยังต้องให้ Nin เคาะ
+
+1. **`CORE` เริ่มต้นมาจากไหน** — เขียนมือตอนสร้าง agent (persona) แล้วให้ตกผลึกเพิ่มเอง?
+   (ตอนนี้ `CoreSet.admit()` รองรับทั้งสองทาง ยังไม่ได้เลือก)
+2. **branching factor และเกณฑ์แตก/ยุบ node** — ต้องรู้ก่อนทำ A7 (consolidation)
+3. **เกณฑ์การตกผลึกนิสัย** — `n_merged ≥ N` เท่าไหร่ และ threshold การกระจายตัวของลูก
 
 ---
 
