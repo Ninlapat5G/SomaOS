@@ -3,6 +3,7 @@ CLAUDE.md's PHASE 0 scope rule -- these exist so scope creep into
 kernel/registry/cortex/modelbus/trace/packs shows up as a failing test,
 not something someone notices during review."""
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -65,12 +66,15 @@ def test_no_third_party_dependency_besides_numpy():
         assert name == "numpy", f"unexpected Phase 0 dependency: {dep}"
 
 
-STDLIB_ISH = {
-    "__future__", "dataclasses", "typing", "enum", "math", "random", "hashlib",
-    "json", "itertools", "bisect", "collections", "argparse", "glob", "pathlib",
-    "statistics", "time", "sys", "os", "ast", "concurrent", "concurrent.futures",
-    "tomllib", "copy", "subprocess",
-}
+# The interpreter's own list, rather than a hand-kept one. A hand-kept
+# allowlist fails on the next stdlib module anyone reaches for -- which is
+# how this test once rejected `heapq` -- and that noise trains people to
+# edit the test instead of reading it. What the rule actually says is "no
+# third-party dependencies", so ask the interpreter what is third party.
+STDLIB_ISH = set(sys.stdlib_module_names) | {"__future__"}
+
+#: Third-party packages that have been explicitly approved (CLAUDE.md).
+ALLOWED_THIRD_PARTY = {"numpy"}
 
 
 def test_no_third_party_import_anywhere_in_somaos():
@@ -79,7 +83,8 @@ def test_no_third_party_import_anywhere_in_somaos():
             top = mod.split(".")[0]
             if top == "somaos":
                 continue
-            assert top in STDLIB_ISH or top == "numpy", (
-                f"{path} imports {mod!r} -- not stdlib and not numpy "
+            assert top in STDLIB_ISH or top in ALLOWED_THIRD_PARTY, (
+                f"{path} imports {mod!r} -- not stdlib and not an approved "
+                f"dependency {sorted(ALLOWED_THIRD_PARTY)} "
                 "(CLAUDE.md: stdlib + numpy only, ask before adding anything else)"
             )
