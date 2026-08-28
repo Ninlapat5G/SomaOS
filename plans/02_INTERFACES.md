@@ -1,277 +1,214 @@
-# Phase 0 — Shared Interfaces (normative)
+# 02 — Interfaces (normative)
 
-> ทุก work package ต้อง import จากที่นี่ ห้ามนิยาม type ซ้ำ
-> ถ้า signature ต้องเปลี่ยน → หยุด ถาม แล้วอัปเดตไฟล์นี้ก่อนเขียนโค้ด
+> **สัญญาที่โค้ดต้องเคารพ** — เขียนจากของที่สร้างจริงแล้ว ไม่ใช่ร่างล่วงหน้า
+> v2 · 2026-08-28 · สอดคล้องกับ `plans/03_MEMORY_ARCHITECTURE.md` และ `plans/01_DECISIONS.md`
+> ✅ = implement แล้วมี test คุม · 🔨 = ยังไม่ได้สร้าง
 
 ---
 
-## 1. `somaos/broker/types.py`
+## 0. แผนผังโมดูล
+
+```
+somaos/broker/
+├── memory/          ✅ ชั้นล่างสุด — ไม่ import อะไรจากชั้นบนเลย
+│   ├── vector.py    ✅ embed · grade D0–D2 · similarity · fidelity · nbytes
+│   ├── address.py   ✅ content_address (Merkle) · AliasTable
+│   ├── node.py      ✅ Region · MemoryNode · NodeStat · ระดับของ CORE/ARCHIVE
+│   └── tree.py      ✅ MemoryTree — โครงสร้าง + แกนความลึก + การเดินแบบมีเพดาน
+├── dilution/        ✅ แกนความคมชัด — import memory/ อย่างเดียว
+│   └── engine.py    ✅ DilutionEngine · DilutionEvent · compose_fidelity
+├── regions/         ✅ กฎเฉพาะของแต่ละภูมิภาค
+│   ├── core.py      ✅ CoreSet · CoreZone — ตัวตนที่ resident + quota
+│   └── trigger.py   ✅ TriggerRegistry · Trigger FSM — interrupt table
+├── recall/          ✅ การนึก — import memory/ + regions/
+│   └── machine.py   ✅ RecallMachine · Move · WalkPath · RecallResult
+├── policies/        🔨 B0/B1/B2/B2c/B4/S ใต้ contract เดียวกัน
+└── opt/             ✅(เดิม) oracle — ต้องเปลี่ยนเป้าเป็น "จัดสรรคลัง"
+```
+
+**กฎการ import (มี test คุมที่ `tests/test_layering.py`):** ชั้นล่างห้ามรู้จักชั้นบน
+`memory/` ไม่ import `dilution/`, `regions/`, `recall/` เด็ดขาด
+dependency ภายนอก: **stdlib + numpy เท่านั้น** (ตรวจด้วย `sys.stdlib_module_names`)
+
+---
+
+## 1. `memory/vector.py` ✅
 
 ```python
-from __future__ import annotations
-from dataclasses import dataclass, field
-from enum import IntEnum
-from typing import Literal, Protocol, Mapping, Sequence
+DEFAULT_DIM = 256
 
-MemoryKind = Literal["episodic", "semantic", "procedural", "prospective"]
+class Grade(IntEnum):        # เรียงตาม "อะไรถูกทำลาย" ไม่ใช่ "ประหยัดกี่ไบต์"
+    D0_EXACT   = 0           # float32  — ตอบได้ทั้งชิ้นไหนและแนวไหน
+    D1_INT8    = 1           # int8     — ยังตอบได้ทั้งสอง (recall@10 ≈ 0.98–0.996)
+    D2_BINARY  = 2           # sign bit — ตอบได้แต่ "แนวไหน" (0.79–1.00)
+    D3_MERGED  = 3           # ไม่มีเวกเตอร์ของตัวเอง — tree เป็นคนจัดการ
+    D4_COUNTER = 4           # เหลือแค่ตัวนับที่บรรพบุรุษ
 
-
-class Tier(IntEnum):
-    WORKING = 0
-    WARM = 1
-    COLD = 2
-
-
-@dataclass(frozen=True, slots=True)
-class MemoryItem:
-    """Immutable. สถานะที่เปลี่ยนได้ (access count/tier) อยู่ใน ItemStat"""
-    id: str
-    kind: MemoryKind
-    tokens: int                      # ต้นทุนเมื่อวางใน context
-    created_tick: int
-    topics: tuple[str, ...]          # ground-truth tags จาก world
-    entities: tuple[str, ...]
-    surprise: float                  # [0,1]  ดู D-04
-    novelty: float                   # [0,1]  ดู D-04
-    pinned: bool = False
-    recompute_cost: float = 0.0      # [0,1] normalized
-    source_item_ids: tuple[str, ...] = ()   # ใช้ตอน B3 ยุบเป็น summary
-    content: str = ""                # opaque; L1 ไม่ตีความ
-
-
-@dataclass(slots=True)
-class ItemStat:
-    """mutable state ของ item ในมุมมองของ policy หนึ่งตัว"""
-    last_access_tick: int
-    access_count: int = 0
-    tier: Tier = Tier.WARM
-    admitted_tick: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class Query:
-    id: str
-    tick: int
-    topics: tuple[str, ...]
-    entities: tuple[str, ...]
-    required_item_ids: frozenset[str]   # ground truth จาก world (§8.1)
-
-
-@dataclass(frozen=True, slots=True)
-class Observation:
-    tick: int
-    item: MemoryItem
-
-
-@dataclass(frozen=True, slots=True)
-class TraceEvent:
-    tick: int
-    kind: Literal["observe", "query"]
-    observation: Observation | None = None
-    query: Query | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class Trace:
-    trace_id: str            # sha256 ของ generator config
-    events: tuple[TraceEvent, ...]
-    n_ticks: int
-    meta: Mapping[str, object]      # regime, seed, item stats
-
-
-@dataclass(frozen=True, slots=True)
-class EncodeDecision:
-    """ผลของ fast path ตอน perceive (§6)"""
-    encoded: bool                    # เก็บเป็น episode เต็มไหม
-    reason: Literal["surprise_high", "novel", "low_surprise_counter", "filtered"]
-    counter_delta: int = 0           # ถ้าไม่เก็บ ให้บวก observation_count
-
-
-@dataclass(frozen=True, slots=True)
-class ContextBundle:
-    query_id: str
-    tick: int
-    budget_tokens: int
-    items: tuple[MemoryItem, ...]    # เรียงแล้ว: static-before-dynamic (§6)
-
-    @property
-    def tokens(self) -> int: ...
-    @property
-    def bundle_hash(self) -> str:
-        """sha256 ของ canonical json: [(id, tokens) ...] ตามลำดับจริง + budget"""
+embed(keys, *, dim, seed_root) -> ndarray      # deterministic (N-13)
+cue_vector(topics, entities, *, dim) -> ndarray
+encode(vec, grade) -> ndarray                  # ขึ้น D3/D4 → GradeError
+similarity(a, b) -> float
+fidelity_of(original, current) -> float        # clamp ที่ 0
+nbytes(vec, grade) -> int                      # binary คิด 1 bit/มิติ ไม่ใช่ 1 byte
+vector_digest(vec, grade) -> str
 ```
 
-**Invariants ที่ต้อง assert:**
-- `bundle.tokens <= bundle.budget_tokens` เสมอ (ยกเว้น B0 ที่ประกาศ `ignores_budget = True`)
-- `bundle_hash` เท่ากันทุกครั้งสำหรับ input เดียวกัน ข้าม process (ห้ามใช้ `hash()`)
-- item ที่ `pinned=True` ต้องอยู่ใน bundle เสมอถ้ายังมีที่ว่างพอ
+**ห้ามลดมิติก่อน binary** — sign bit คือ SimHash, จำนวนบิต = ขนาดตัวอย่างของการประมาณมุม
+ลดมิติ = ลดความแม่นเร็วกว่าที่ประหยัดได้ (วัดแล้ว ดู `03` §3.3)
 
----
-
-## 2. `somaos/broker/policy.py`
+## 2. `memory/address.py` ✅
 
 ```python
-class MemoryPolicy(Protocol):
-    name: str                     # "B0" | "B1" | "B2" | "B3" | "B4" | "S"
-    ignores_budget: bool          # True เฉพาะ B0
+content_address(*, vec, grade, level, region, children) -> "addr:<sha256>"
+    # children ถูก sort → ลำดับพี่น้องไม่ทำให้ address แตก
+    # grade อยู่ใน address → ของที่เจือจางแล้วคือคนละ address
 
-    def reset(self, *, budget_tokens: int, seed_root: str, config: Mapping) -> None:
-        """เรียกก่อนรัน trace ทุกครั้ง ต้องล้าง state ทั้งหมด"""
-
-    def observe(self, obs: Observation) -> EncodeDecision:
-        """fast path — ห้ามแตะ LLM ห้ามใช้เวลาเกิน budget ของ D-07"""
-
-    def on_tick(self, tick: int) -> None:
-        """maintenance ต่อ tick (decay, promote/demote) — optional no-op"""
-
-    def on_query(self, q: Query) -> ContextBundle:
-        """ประกอบ bundle ที่จะส่งเข้าโมเดล (ที่ L1 ใช้วัด answerability)"""
-
-    def stats(self) -> dict[str, float]:
-        """counter สะสม: llm_calls, evictions, promotions, demotions, ..."""
-
-
-POLICY_REGISTRY: dict[str, type]   # ลงทะเบียนด้วย @register_policy("B1")
-def build_policy(name: str, **kwargs) -> MemoryPolicy: ...
+class AliasTable:            # append-only ห้ามลบ
+    add(old, new)            # ชี้ซ้ำไปที่อื่น → ValueError (ห้ามเขียนประวัติใหม่)
+    resolve(addr) -> str     # ไม่มี alias → คืนตัวเอง · ห้ามคืน None
+    chain(addr) -> tuple     # เส้นทางเต็ม = audit trail ของการจางของความทรงจำหนึ่ง
+    links -> dict            # สำเนา ป้องกันการแก้ประวัติจากภายนอก
 ```
 
----
-
-## 3. `somaos/broker/retention.py` (pure)
+## 3. `memory/node.py` ✅
 
 ```python
-@dataclass(frozen=True, slots=True)
-class RetentionWeights:
-    w_recency: float
-    w_frequency: float
-    w_relevance: float
-    w_surprise: float
-    w_novelty: float          # D-04
-    w_pinned: float
-    w_recompute: float
+class Region(IntEnum):  CORE=0 · TRIGGER=1 · SKILL=2 · ARCHIVE=3
+UNDILUTABLE = {CORE, TRIGGER}                    # N-06
+MAX_GRADE   = {CORE: D0, TRIGGER: D0, SKILL: D3, ARCHIVE: D4}
 
-    @classmethod
-    def from_json(cls, path_or_obj) -> RetentionWeights: ...
-    def normalized(self) -> RetentionWeights:
-        """หารด้วยผลรวม → score อยู่ใน [0,1] เทียบข้าม config ได้"""
+class CoreLevel(IntEnum):     TRAIT=0 · ADAPTATION=1 · NARRATIVE=2   # ช้า→เร็ว (McAdams)
+class ArchiveLevel(IntEnum):  VERBATIM=0 · SPECIFIC_EVENT=1 ·
+                              GENERAL_EVENT=2 ★ · LIFETIME_PERIOD=3 · NARRATIVE=4
+WALK_ENTRY_LEVEL = GENERAL_EVENT                 # ★ จุดเข้าของการเดิน (Conway)
 
+@dataclass(frozen=True) MemoryNode:
+    addr · region · level · vec · grade · fidelity
+    parent · children · n_merged · span · keys · text_ref · raw_refs
+    .nbytes            # คิดเฉพาะเวกเตอร์ — metadata ไม่กินงบ "ขนาดสมอง"
+    .may_dilute_to(grade) -> bool
 
-@dataclass(frozen=True, slots=True)
-class RetentionFeatures:
-    recency: float      # [0,1]
-    frequency: float
-    relevance: float
-    surprise: float
-    novelty: float
-    pinned: float       # 0.0 | 1.0
-    recompute: float
-
-
-def extract_features(
-    item: MemoryItem, stat: ItemStat, *, now_tick: int,
-    tau_ticks: int, goal_topics: frozenset[str], goal_entities: frozenset[str],
-    max_access_count: int,
-) -> RetentionFeatures: ...
-
-
-def retention_score(f: RetentionFeatures, w: RetentionWeights) -> float:
-    """pure. ผลลัพธ์ใน [0,1]. ห้ามมี side effect ห้ามอ่าน global"""
+@dataclass NodeStat:   last_used_tick · use_count · hit_count · miss_count
+make_node(...) -> MemoryNode                     # คำนวณ addr + fidelity ให้
 ```
 
-**สัญญาเชิงคณิตศาสตร์ (ต้องมี test):**
-- monotone: เพิ่ม feature ใด ๆ ที่ weight > 0 → score ไม่ลด
-- bounded: `0.0 <= score <= 1.0` สำหรับทุก input ที่ feature อยู่ใน [0,1]
-- deterministic: เรียกซ้ำได้ผลเดิม bit-for-bit
-- weight ศูนย์ → feature นั้นไม่มีผลเลย (ใช้ property test ยืนยัน)
+**node เป็น frozen** — เนื้อหากำหนด address การแก้ในที่จะทำให้ address ที่ชี้มาพังเงียบ ๆ
+การเจือจางจึง **สร้าง node ใหม่ + เขียน alias** ไม่ใช่แก้ของเดิม
+**`NodeStat` แยกออกมา** เพราะการอ่านความทรงจำต้องไม่เขียนทับมัน
 
----
-
-## 4. `somaos/broker/workingset.py`
+## 4. `memory/tree.py` ✅
 
 ```python
-@dataclass(frozen=True, slots=True)
-class AllocationResult:
-    admitted: tuple[str, ...]        # item ids ที่เข้า WORKING รอบนี้
-    evicted: tuple[str, ...]
-    resident: tuple[str, ...]        # working set หลัง allocate (เรียงตาม score desc)
-    tokens_used: int
-    churn: int                       # |admitted| + |evicted|
+class MemoryTree:
+    insert(node, *, parent=None, tick=0) -> addr      # เนื้อหาซ้ำ = addr เดิม (dedupe)
+    resolve(addr) -> Resolution                       # ห้ามคืน None (I1)
+    get(addr) -> MemoryNode | None                    # ดิบ ไม่ตาม alias
+    by_key(key) -> tuple[addr]                        # exact lookup — ที่ SKILL/TRIGGER ใช้
+    entry_points(region) -> tuple[addr]               # ชั้น general event
+    rank_children(addr, cue, *, tick, beam) -> ((addr, score), ...)
+    touch(addr, *, tick, hit)                         # ยกความลึกเท่านั้น ไม่แตะ fidelity
+    retrieval_strength(addr, *, tick) -> float
+    replace_node(old, new) -> addr                    # fidelity สูงขึ้น → ValueError
+    dissolve_into_parent(addr, *, counted) -> addr    # D3 ยุบเข้า centroid / D4 นับ
+    store_bytes() · region_bytes(r) · grade_histogram() · mean_fidelity()
 
-
-class WorkingSetAllocator:
-    def __init__(self, *, budget_tokens: int, weights, tau_ticks: int,
-                 hysteresis: float = 0.0): ...
-
-    def allocate(self, *, now_tick: int, candidates: Sequence[tuple[MemoryItem, ItemStat]],
-                 goal_topics, goal_entities) -> AllocationResult: ...
-
-    def churn_rate(self, window: int = 32) -> float: ...
-    def thrash_indicator(self, progress_rate: float) -> float:
-        """churn สูง + progress ต่ำ (§5.5)"""
+@dataclass(frozen=True) Resolution:
+    node · fidelity · hops · requested
 ```
 
-**หมายเหตุ algorithm:** knapsack ด้วย `score/tokens` ratio (greedy) + pinned บังคับเข้าก่อน
-`hysteresis` ป้องกัน item เด้งเข้า-ออกรอบขอบ budget (ตัวแปรสำคัญต่อ churn)
-tie-break ด้วย `item.id` เสมอ (D-08)
+⚠️ **`Resolution.fidelity` เป็น *ขอบล่าง* ไม่ใช่ค่าที่วัดได้** — เก็บ cosine ต่อ hop แล้ว compose
+ตอนอ่าน (มุมบวกกัน ตาม triangle inequality) จึง**ต่ำกว่าความจริงเสมอ ไม่มีทางสูงกว่า**
+แต่หลวมมากหลังหลายขั้น (อ่าน 0.0 ได้ทั้งที่ยังอยู่ใน cluster ถูก)
+→ **ใช้ตัดสิน D3/D4 และลง audit log ได้ · ห้ามรายงานเป็น M1** — M1 วัดกับ ground truth ใน bench
+(บทเรียนเดิม: ห้ามให้ component ตั้งราคาผลงานตัวเอง)
 
----
-
-## 5. `somaos/broker/opt/oracle.py`
+## 5. `dilution/engine.py` ✅
 
 ```python
-@dataclass(frozen=True, slots=True)
-class OptResult:
-    mode: Literal["exact_belady", "upper_bound"]
-    strict_recall: float
-    partial_recall: float
-    tokens_per_query: float
-    per_query: tuple[dict, ...]      # structured, ไม่ใช่ print
+COUNTER_FLOOR = 0.7          # ต่ำกว่านี้ → D4 (นับอย่างเดียว) ไม่ให้ไปดึง gist ของแม่เพี้ยน
 
-def opt_offline(trace: Trace, *, budget_tokens: int, mode: str) -> OptResult: ...
+class DilutionEngine:
+    store_budget_bytes: int
+    enforce(tree, *, tick) -> tuple[DilutionEvent, ...]   # idempotent
+    reserved_bytes(tree) · available_bytes(tree)
+
+@dataclass(frozen=True) DilutionEvent:      # ลง JSONL ได้ — audit trail
+    tick · addr_before/after · region · grade_before/after
+    fidelity_before/after · bytes_before/after · retrieval_strength · reason
 ```
+
+**ลำดับ: rung-major ไม่ใช่ victim-major** — ทุกตัวขึ้น int8 ก่อน แล้วค่อยทุกตัวขึ้น binary
+เพราะ int8 แทบไม่เสียความสามารถแต่คืน 4 เท่า → เก็บของถูกให้หมดก่อนจ่ายของแพง
+ภายในขั้นเดียวกัน **เย็นสุดไปก่อน** ซึ่งเป็นจุดที่ "ของที่ไม่ได้ใช้คือของที่จาง" เข้ามาจริง
+
+## 6. `regions/` ✅
+
+```python
+class CoreSet:                                    # ตัวตน — resident เสมอ
+    quota_bytes: int
+    admit(tree, node, level) -> addr              # เกิน quota → CoreQuotaExceeded
+    zones(tree) -> (CoreZone, ...)                # เรียง TRAIT → ADAPTATION → NARRATIVE
+    resident_tokens(tree) -> int                  # จ่ายทุก tick ก่อนการนึกใด ๆ
+
+class TriggerKind(Enum):   EVENT · TIME · PREDICATE
+class TriggerState(IntEnum): ARMED · FIRED · SUSPENDED · RETIRED
+
+class TriggerRegistry:
+    arm(trigger) -> id
+    on_event(cue, *, tick)  -> fired      # O(1) · 0 ops        (spontaneous retrieval)
+    on_tick(tick)           -> fired      # heap · 0 ops
+    check_predicates(world, *, tick, evaluate=None) -> fired
+                                          # 1 op ต่อเงื่อนไขที่ armed  (monitoring)
+    complete(id, *, tick) / suspend(id) / retire(id)
+    monitoring_load() -> int              # ภาษีต่อ tick ที่ agent เลือกจ่ายเอง
+```
+
+**เรียง zone ของ CORE จากช้าไปเร็ว** = ลำดับใน prompt ด้วย → prefix เสถียร cache ไม่แตก
+**`SUSPENDED` ≠ `RETIRED`** — ความตั้งใจที่ค้างยังผุดเอง ที่ทำเสร็จแล้วไม่ผุด
+
+## 7. `recall/machine.py` ✅
+
+```python
+class RecallState(Enum): IDLE · CUE · RESIDENT · NAVIGATE · MATERIALIZE · SETTLE
+class Move(Enum):        DESCEND · ASCEND · LATERAL · MATERIALIZE · STOP
+
+class RecallMachine:
+    __init__(tree, *, ops_budget, context_budget_tokens, beam, tokens_of)
+    begin(*, topics, entities, tick, resident, region) -> RecallState
+    offer() -> tuple[Move, ...]                  # เมนู tool ของ agent — เฉพาะที่ถูกกฎ
+    step(move, *, addr=None) -> RecallState      # ผิดกฎ → IllegalMove
+    run_fast_path(*, max_materialized) -> RecallResult    # ไม่แตะ LLM
+    finish() -> RecallResult
+
+@dataclass RecallResult:  nodes · path · tokens_used · resident_tokens
+@dataclass WalkPath:      steps · ops_used · stopped_by · materialized · to_jsonable()
+```
+
+**`tokens_of` ต้องไม่ขึ้นกับ `text_ref`** ไม่งั้น invariant V1 พังทางอ้อม
+default = `structural_tokens` (จาก level) · **bench override ด้วยค่าจริงจาก trace**
 
 ---
 
-## 6. `somaos/bench/metrics.py` — schema ของ JSONL หนึ่งบรรทัด
+## 8. Invariant ที่มี test คุมแล้ว
 
-```json
-{
-  "run_id": "sha256:...",
-  "policy": "S",
-  "regime": "uniform",
-  "seed_root": "holdout-07",
-  "trace_id": "sha256:...",
-  "budget_tokens": 4096,
-  "tau_ticks": 32,
-  "n_ticks": 5000,
-  "n_queries": 400,
-  "strict_recall": 0.0,
-  "partial_recall": 0.0,
-  "tokens_per_query": 0.0,
-  "total_tokens": 0,
-  "llm_calls": 0,
-  "llm_call_ratio": 0.0,
-  "hit_at_k": {"1": 0.0, "5": 0.0, "10": 0.0},
-  "context_churn_rate": 0.0,
-  "thrash_indicator": 0.0,
-  "encode_rate": 0.0,
-  "evictions": 0,
-  "page_faults": 0,
-  "page_fault_rate": 0.0,
-  "page_fault_tokens": 0,
-  "page_fault_tokens_per_query": 0.0,
-  "answered_via_pointer_rate": 0.0,
-  "pointer_denied_rate": 0.0,
-  "effective_tokens_per_query": 0.0,
-  "opt_strict_recall": 0.0,
-  "opt_mode": "exact_belady",
-  "competitive_ratio": 0.0,
-  "surprise_utility_spearman": 0.0,
-  "config_hash": "sha256:..."
-}
-```
-ฟิลด์กลุ่ม `page_*` / `answered_via_pointer_rate` / `effective_tokens_per_query` มาจาก **D-14**
-(pointer dereference = page fault ที่ต้องจ่าย token) — นิยามอยู่ใน `somaos/bench/coverage.py`
-`resolve_coverage()` **ห้ามรับ `required_item_ids`** เด็ดขาด (มี test คุม signature ไว้)
+| # | Invariant | test |
+|---|---|---|
+| I1 | `resolve()` ไม่เคยคืน None | `test_memory_core.py`, `test_memory_tree.py`, `test_dilution.py` |
+| I2 | `store_used ≤ store_budget` | `test_dilution.py` |
+| I3 | ลบ `text_ref` → เดินเหมือนเดิม bit-for-bit | `test_recall.py` |
+| I4 | `CORE`/`TRIGGER` ไม่เคยเจือจาง | `test_dilution.py`, `test_memory_tree.py` |
+| I5 | เจือจางทำซ้ำได้ | `test_dilution.py` |
+| I6 | ไม่มี O(N) ต่อการนึกหนึ่งครั้ง | `test_memory_tree.py`, `test_recall.py` |
+| I7 | `fidelity` ลด/`grade` เดินหน้าอย่างเดียว | `test_dilution.py`, `test_memory_tree.py` |
+| I8 | ทุกคำตอบมี `WalkPath` | `test_recall.py` |
+| I9 | `SKILL` ไม่ index ด้วย similarity อย่างเดียว | `test_memory_tree.py` (`by_key`) |
 
-Timing (`fast_path_ms_p50/p95`) เขียนแยกไฟล์ `runs/timing-*.jsonl` เพราะไม่ deterministic (DoD §4)
+## 9. ยังไม่ได้สร้าง 🔨
+
+| ชิ้น | หมายเหตุ |
+|---|---|
+| `policies/` ใหม่ | `S` ห่อ tree+dilution+recall · `B2c` = flat RAG + บีบอัดสุ่ม (N-14) |
+| consolidation FSM | `REPLAY → ABSTRACT → REBALANCE → ENFORCE` (`03` §5.4) — รวมถึงการตกผลึกนิสัย |
+| trace generator ใหม่ | query 4 ระดับ (N-12) |
+| metric detail/gist | N-11 — วัดกับ ground truth |
+| `MemoryPolicy` protocol ใหม่ | ต้องรับ `store_budget_bytes` + `recall_ops_budget` (N-05) |
