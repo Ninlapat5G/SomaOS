@@ -206,6 +206,7 @@ McClelland, McNaughton & O'Reilly (1995) อธิบายว่าทำไม
 | 3 | ลืมแล้วไม่รู้ว่าลืมอะไร | **log ทุกครั้งที่เจือจาง** ว่าอะไรจางเพราะอะไร | ต้อง audit ได้ |
 | 4 | ยิ่งอารมณ์แรง ยิ่งจำแม่น (amygdala modulation) | surprise/arousal เป็นแค่**สัญญาณจัดชั้น** ไม่ใช่ประตูตัดสินเก็บ/ทิ้ง | รอบที่แล้วทำแบบสมองแล้วพัง (`ARCHIVE_PHASE0_RESULT.md`) — เดาผิดต้องแค่เข้าถึงช้าลง ไม่ใช่ข้อมูลหาย |
 | 5 | ไม่มี guarantee เชิง complexity | guarantee มาจาก OS/DB/IR theory | metaphor ใช้หาไอเดีย ไม่ใช้ค้ำประกัน |
+| 6 | **ในที่สุดแก่นก็หายได้** — วรรณกรรม semantic dementia ระบุว่า superordinate knowledge ก็เสื่อมตามมาเมื่อโรคดำเนินไป | **พื้น D4 ของเราไม่จางต่ออีกเลย** — "เคยมีเรื่องแบบนี้ n ครั้ง" อยู่ตลอดกาล | เจอตอนตรวจเอกสารรอบสอง · เป็นการเลือกโดยตั้งใจตาม N-01 ไม่ใช่การลอกสมอง และต้องรายงานว่าเป็นจุดที่ต่าง |
 
 ---
 
@@ -228,21 +229,96 @@ McClelland, McNaughton & O'Reilly (1995) อธิบายว่าทำไม
 
 ---
 
-## 11. รายการอ้างอิง
+## 11. รายการอ้างอิง — **ตรวจสอบครบทุกรายการแล้ว** ✅
 
-**ตรวจสอบจากแหล่งออนไลน์ในรอบนี้:**
-- Conway, M. A., & Pleydell-Pearce, C. W. (2000). *The construction of autobiographical memories in the self-memory system* — [Semantic Scholar](https://www.semanticscholar.org/paper/The-construction-of-autobiographical-memories-in-Conway-Pleydell-Pearce/13241a844c714549c173e239714ae020386172e3) · [PDF](https://www.researchgate.net/profile/Martin-Conway-2/publication/12528554_The_Construction_of_Autobiographical_Memories_in_the_Self-Memory_System/links/0deec51babda329123000000/The-Construction-of-Autobiographical-Memories-in-the-Self-Memory-System.pdf) · [Conway (2005), Memory and the self](http://www.self-definingmemories.com/Conway_2005.pdf)
-- Bjork, R. A., & Bjork, E. L. (1992). *A new theory of disuse and an old theory of stimulus fluctuation* — [ResearchGate](https://www.researchgate.net/publication/281322665_A_new_theory_of_disuse_and_an_old_theory_of_stimulus_fluctuation) · [Bjork Learning and Forgetting Lab](https://bjorklab.psych.ucla.edu/research/) · [Desirable difficulties (2020)](https://www.waddesdonschool.com/wp-content/uploads/2021/02/Desriable-Difficulties-in-theory-and-practice-Bjork-Bjork-2020.pdf)
-- Brainerd, C. J., & Reyna, V. F. — Fuzzy-trace theory — [PubMed](https://pubmed.ncbi.nlm.nih.gov/11605365/) · [ScienceDirect overview](https://www.sciencedirect.com/topics/neuroscience/fuzzy-trace-theory) · [Wikipedia](https://en.wikipedia.org/wiki/Fuzzy-trace_theory)
-- Einstein, G. O., & McDaniel, M. A. (2005). *Prospective memory: Multiple retrieval processes* — [SAGE](https://journals.sagepub.com/doi/10.1111/j.0963-7214.2005.00382.x) · [Multiprocess retrieval, PubMed](https://pubmed.ncbi.nlm.nih.gov/16131267/) · [suspended vs finished intentions](https://link.springer.com/article/10.3758/MC.37.4.425)
-- McAdams, D. P. — three levels of personality — [Traits and Stories (PDF)](https://languageandcognition.umd.edu/McAdamsEtAl2004.pdf) · [Three-domain analysis](https://pmc.ncbi.nlm.nih.gov/articles/PMC5836930/)
-- Charikar, M. (2002). SimHash / random hyperplane rounding — พื้นฐานของ D2 binary (§3 ของ `03_MEMORY_ARCHITECTURE.md`) — [binary quantization ของ contrastive embeddings, 2026](https://arxiv.org/html/2605.17524)
+> ทุกรายการในเอกสารนี้ถูกเปิดตรวจจากแหล่งออนไลน์แล้ว ไม่มีรายการที่อ้างจากความจำอย่างเดียวเหลืออยู่
+> ตรวจรอบสอง (รายการ 7–13) เมื่อ 2026-08-28
 
-**อ้างจากความรู้ที่เป็นตำรามาตรฐาน (ยังไม่ได้ตรวจซ้ำในรอบนี้ — ทำก่อนเขียน paper):**
-- Squire, L. R. — taxonomy ของ declarative/non-declarative; ผู้ป่วย H.M. (Scoville & Milner, 1957)
-- Tulving, E. (1972) — episodic vs semantic
-- McClelland, McNaughton & O'Reilly (1995) — Complementary Learning Systems
-- Wood, W., & Neal, D. T. (2007) — habit as context–response association; Graybiel — action chunking
-- Bartlett, F. C. (1932) — reconstructive memory
-- Collins & Loftus (1975) — spreading activation (พื้นฐานของ `lateral` move)
-- Warrington (1975) / Rogers et al. — semantic dementia: superordinate อยู่รอดกว่า subordinate
+### โครงสร้างต้นไม้ · การนึก
+1. **Conway, M. A., & Pleydell-Pearce, C. W. (2000).** *The construction of autobiographical memories in the self-memory system.* Psychological Review — ลำดับชั้น lifetime period → general event → ESK และ generative retrieval ที่เริ่มที่ระดับ general event
+   [Semantic Scholar](https://www.semanticscholar.org/paper/The-construction-of-autobiographical-memories-in-Conway-Pleydell-Pearce/13241a844c714549c173e239714ae020386172e3) · [PDF](https://www.researchgate.net/profile/Martin-Conway-2/publication/12528554_The_Construction_of_Autobiographical_Memories_in_the_Self-Memory_System/links/0deec51babda329123000000/The-Construction-of-Autobiographical-Memories-in-the-Self-Memory-System.pdf)
+2. **Collins, A. M., & Loftus, E. F. (1975).** *A spreading-activation theory of semantic processing.* Psychological Review — พื้นฐานของ move `lateral`: activation แผ่ไปตาม link สองทิศทางระหว่าง node ที่เกี่ยวข้อง
+   [PDF ต้นฉบับ](https://faculty.sites.uci.edu/eloftus/files/2024/08/CollinsLoftus_PsychReview_75.pdf) · [Semantic Scholar](https://www.semanticscholar.org/paper/A-spreading-activation-theory-of-semantic-Collins-Loftus/61374d14a581b03af7e4fe0342a722ea94911490)
+
+### สองแกนของการลืม · การเจือจาง
+3. **Bjork, R. A., & Bjork, E. L. (1992).** *A new theory of disuse and an old theory of stimulus fluctuation* — storage strength vs retrieval strength; "ลืม = เข้าถึงไม่ได้ ไม่ใช่ถูกลบ"
+   [ResearchGate](https://www.researchgate.net/publication/281322665_A_new_theory_of_disuse_and_an_old_theory_of_stimulus_fluctuation) · [Bjork Lab](https://bjorklab.psych.ucla.edu/research/)
+4. **Brainerd, C. J., & Reyna, V. F.** — Fuzzy-trace theory: verbatim vs gist และ differential survival rates
+   [PubMed](https://pubmed.ncbi.nlm.nih.gov/11605365/) · [ScienceDirect](https://www.sciencedirect.com/topics/neuroscience/fuzzy-trace-theory)
+5. **Warrington (1975); Hodges et al. (1992); Rogers et al.** — semantic dementia: **superordinate advantage** ผู้ป่วยระบุด้วยคำระดับหมวด ("สัตว์") ได้แม่นกว่าชื่อเฉพาะ ("ม้าลาย") อย่างมีนัยสำคัญ
+   [ScienceDirect overview](https://www.sciencedirect.com/topics/pharmacology-toxicology-and-pharmaceutical-science/semantic-dementia) · [Contrasting patterns of comprehension, PubMed](https://www.unboundmedicine.com/medline/citation/19086203/) · [Lost in semantic space, Brain](https://academic.oup.com/brain/article/129/5/1152/327149)
+   > ⚠️ **ข้อที่เจอตอนตรวจและต้องบันทึก:** วรรณกรรมระบุว่า *"over time, superordinate knowledge may also succumb"* —
+   > **ในคนแก่นก็หายได้ในที่สุด** ส่วนพื้น D4 ของเราไม่จางต่ออีกเลย → ดู §9 ข้อ 6
+6. **Bartlett, F. C. (1932).** *Remembering* — War of the Ghosts: การจำเป็นการประกอบใหม่ตาม schema
+   [ทบทวนใน Memory (2022)](https://www.tandfonline.com/doi/full/10.1080/09658211.2022.2059514) · [สรุปการศึกษา](https://www.psychstory.co.uk/memory/reconstructive-memory-and-schemas)
+   > กลไกที่ Bartlett แยกไว้ 3 อย่าง map ลง SomaOS ได้ตรง ๆ:
+   > **levelling** (ตัดรายละเอียดที่ไม่สำคัญออก เรื่องสั้นลงเรื่อย ๆ) ≈ บันไดการเจือจางของเรา
+   > **assimilation** และ **sharpening** (แต่งให้เข้ากับ schema เดิม · ยัดเหตุผลที่ไม่มีในต้นฉบับ) = สิ่งที่เรา**ห้าม**โดยเด็ดขาด (§9 ข้อ 2)
+
+### การแยกระบบความจำ
+7. **Squire, L. R., & Zola-Morgan** — taxonomy declarative/non-declarative; **Scoville & Milner (1957)** ผู้ป่วย H.M.
+   ทักษะที่ยังเรียนได้ทั้งที่จำเหตุการณ์ใหม่ไม่ได้: motor skill, mirror-reading (เรียนได้เท่ากลุ่มควบคุม จำได้อย่างน้อย 3 เดือน)
+   [The Cognitive Neuroscience of Human Memory Since H.M., PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC3192650/) · [Structure and function of declarative and nondeclarative memory systems, PNAS](https://www.pnas.org/doi/10.1073/pnas.93.24.13515) · [Preserved learning in amnesia, Science](https://www.science.org/doi/10.1126/science.7414331)
+8. **Tulving, E. (1972).** episodic vs semantic — episodic = เหตุการณ์ที่ผูกกับเวลา/สถานที่/ตัวตน · semantic = ความรู้ที่หลุดบริบทแล้ว
+   [Historical perspective, ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S0028393220300373) · [Rethinking the distinction (2022)](https://link.springer.com/article/10.3758/s13421-022-01299-x)
+
+### นิสัยและทักษะ
+9. **Wood, W., & Neal, D. T. (2007).** *A New Look at Habits and the Habit–Goal Interface.* Psychological Review —
+   "perception of contexts triggers the associated response **without a mediating goal**" และ habit ทำนายพฤติกรรมได้แม้คุมตัวแปรเป้าหมายไว้แล้ว
+   [PDF ต้นฉบับ, USC](https://dornsife.usc.edu/wendy-wood/wp-content/uploads/sites/183/2023/10/wood.neal_.2007psychrev_a_new_look_at_habits_and_the_interface_between_habits_and_goals.pdf) · [Wood, Mazar & Neal (2022)](https://journals.sagepub.com/doi/abs/10.1177/1745691621994226)
+10. **Graybiel, A. M. (1998).** *The basal ganglia and chunking of action repertoires* — ลำดับการกระทำถูก recode เป็น **หน่วยเดียว**; หนูที่วิ่งเขาวงกตซ้ำ ๆ neuron จาก firing ตลอดทาง เหลือ burst ที่ต้นทางกับปลายทาง
+    [PubMed](https://pubmed.ncbi.nlm.nih.gov/9753592/) · [ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S1074742798938436) · [Graybiel (2008) review](https://web.math.princeton.edu/~sswang/basal-ganglia/graybiel08_annu_rev_neurosci_BG-evaluative-brain.pdf)
+
+### ความตั้งใจ · ตัวตน · การนอน
+11. **Einstein, G. O., & McDaniel, M. A. (2005).** prospective memory — event/time-based; monitoring vs spontaneous retrieval; **suspended intentions ยังผุดเอง ส่วนที่ finished ไม่ผุด**
+    [SAGE](https://journals.sagepub.com/doi/10.1111/j.0963-7214.2005.00382.x) · [PubMed](https://pubmed.ncbi.nlm.nih.gov/16131267/) · [suspended vs finished](https://link.springer.com/article/10.3758/MC.37.4.425)
+12. **McAdams, D. P.** — three levels: dispositional traits · characteristic adaptations · narrative identity
+    [Traits and Stories, PDF](https://languageandcognition.umd.edu/McAdamsEtAl2004.pdf) · [The Psychology of Life Stories (2001)](https://journals.sagepub.com/doi/10.1037/1089-2680.5.2.100)
+13. **McClelland, McNaughton & O'Reilly (1995).** *Why there are complementary learning systems...* Psychological Review 102(3), 419–457 —
+    hippocampus เรียนเร็วแบบ pattern-separated · neocortex เรียนช้าเพื่อสกัดโครงสร้าง · **interleaved learning กัน catastrophic interference**
+    [PubMed](https://pubmed.ncbi.nlm.nih.gov/7624455/) · [PDF](https://www.researchgate.net/profile/James-Mcclelland-4/publication/15575602_Why_There_are_Complementary_Learning_Systems_in_the_Hippocampus_and_Neocortex/links/0046353bc1872a47b5000000/Why-There-Are-Complementary-Learning-Systems-in-the-Hippocampus-and-Neocortex.pdf)
+
+### เชิงวิศวกรรม (ไม่ใช่งานวิจัยสมอง)
+14. **Charikar, M. (2002).** SimHash / random hyperplane rounding — `P[บิตตรงกัน] = 1 − θ/π` พื้นฐานของขั้น D2
+    [binary quantization ของ contrastive embeddings (2026)](https://arxiv.org/html/2605.17524)
+
+---
+
+## 12. ⚖️ อะไรมาจากไหน — ตารางที่ต้องไม่โกหกตัวเอง
+
+> **กฎ:** เวลาเขียน paper หรือคุยกับคนนอก ต้องแยกสามกลุ่มนี้ให้ชัด
+> การเคลมรวม ๆ ว่า "inspired by human memory" คือสิ่งที่งาน AI memory ส่วนใหญ่ทำ และเป็นสิ่งที่เราจะไม่ทำ
+
+| ส่วนของดีไซน์ | ที่มา | สถานะ |
+|---|---|---|
+| แยก 4 ภูมิภาคตามหน้าที่ | Squire · H.M. | 🟢 งานวิจัย |
+| ต้นไม้ 5 ชั้นของ ARCHIVE | Conway & Pleydell-Pearce | 🟢 งานวิจัย |
+| การเดินเริ่มที่ชั้น general event | Conway | 🟢 งานวิจัย |
+| move `lateral` | Collins & Loftus | 🟢 งานวิจัย |
+| แกนความลึก / แกนความคมชัด แยกกัน | Bjork & Bjork | 🟢 งานวิจัย |
+| verbatim ตายก่อน gist | Fuzzy-trace theory | 🟢 งานวิจัย |
+| แก่นระดับหมวดอยู่รอดกว่าชื่อเฉพาะ | semantic dementia | 🟢 งานวิจัย |
+| `SKILL` เรียกด้วย cue ไม่ผ่านการค้น | Wood & Neal · H.M. | 🟢 งานวิจัย |
+| `SKILL` node = ลำดับการกระทำทั้งชุด | Graybiel chunking | 🟢 งานวิจัย |
+| trigger event/time + ต้นทุน monitoring ต่างกัน | Einstein & McDaniel | 🟢 งานวิจัย |
+| สถานะ `SUSPENDED` แยกจาก `RETIRED` | Einstein & McDaniel | 🟢 งานวิจัย |
+| `CORE` 3 ชั้น | McAdams | 🟢 งานวิจัย |
+| consolidation เป็น batch + interleaved | CLS (1995) | 🟢 งานวิจัย |
+| **`CORE.narrative` = รากของ `ARCHIVE`** | Conway + McAdams | 🟡 **สังเคราะห์เอง** — วรรณกรรมเรียกสองอันนี้ว่า *complementary frameworks* และมีงานที่ใช้คู่กัน **แต่ไม่มีใครบอกว่าเป็นอันเดียวกัน** การรวมเป็นรากเดียวเป็นก้าวเชิงวิศวกรรมของเรา |
+| เก็บเป็นเวกเตอร์ · dim=256 | ML/IR | 🔵 วิศวกรรม |
+| content address · Merkle · alias table | OS/blockchain | 🔵 วิศวกรรม |
+| ขั้น D2 = sign bits | Charikar (CS) + **ผลวัดของเราเอง** | 🔵 วิศวกรรม |
+| best-first · beam · การแตก node | algorithm | 🔵 วิศวกรรม |
+| ค่าคงที่ทั้ง 12 ตัว | **ตั้งเอง ยังไม่ได้ tune** | 🔵 วิศวกรรม |
+| `store_budget_bytes` เป็นเพดานไบต์แข็ง | — | ⚫ **จงใจต่างจากสมอง** (§9) |
+| ห้ามสังเคราะห์รายละเอียดที่ไม่มีจริง | — | ⚫ **จงใจต่างจากสมอง** (§9) |
+
+### ⚠️ ข้อจำกัดที่ใหญ่ที่สุด และต้องพูดทุกครั้ง
+
+**งานวิจัยเป็นแรงบันดาลใจให้โครงสร้าง — ไม่ได้ยืนยันว่า implementation ถูก**
+ผลวัดทั้งหมดบอกว่า *ของที่สร้างมันทำงาน* ไม่ได้บอกว่า *มันเหมือนความจำคน*
+เพราะ **ยังไม่เคยเทียบกับข้อมูลพฤติกรรมมนุษย์จริงเลยสักครั้ง**
+
+ถ้าจะเคลมข้อหลังได้ ต้องทำอย่างน้อยหนึ่งอย่าง: จำลอง forgetting curve ของ Ebbinghaus ให้ตรง ·
+สร้าง superordinate advantage แบบเดียวกับผู้ป่วย semantic dementia · หรือทำนายผลการทดลอง
+prospective memory ของคนได้ — **ทั้งหมดนี้ยังไม่ได้ทำ**
