@@ -1,6 +1,6 @@
 # plan.md — แผนงานและสถานะ
 
-> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: A0–A7 เสร็จ · 527 tests ผ่าน**
+> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: A0–A7 เสร็จ + integration · 539 tests ผ่าน**
 > 📄 สรุปสถาปัตยกรรมสำหรับตรวจงาน: https://claude.ai/code/artifact/fb680222-48a4-4c3f-8c17-d7a6331deb47
 > ดีไซน์เก่า (surprise-gated encoding) ถูกยกเลิก — ผลการวัดเก็บที่ `plans/ARCHIVE_PHASE0_RESULT.md`
 
@@ -43,9 +43,10 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 | **A4** | `broker/regions/{core,trigger}.py` | 27 | CORE resident + quota · TRIGGER FSM 3 ชนิด |
 | **A5** | `broker/recall/machine.py` | 28 | FSM 6 สถานะ · 5 moves · WalkPath · fast path |
 | **A7** | `broker/consolidation/machine.py` | 23 | REPLAY→ABSTRACT→REBALANCE→ENFORCE · ตกผลึกนิสัย |
+| — | `tests/test_integration_agent_life.py` | 12 | รัน 5 โมดูลด้วยกัน 200 วัน — **เจอบั๊ก 4 ตัวที่ unit test มองไม่เห็น** |
 | — | `bench/experiments/` | — | `quantization_fidelity.py` · `capacity_curve.py` |
 
-**รวม 527 tests ผ่านทั้งหมด**
+**รวม 539 tests ผ่านทั้งหมด**
 
 ### 1.3 โค้ดเก่าที่ยังไม่แตะ
 
@@ -87,7 +88,23 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 **ลำดับที่เหลือ:** A7 → A8 → A9 → A10 → A11 → A12 → A13
 (A12 ต้องเสร็จ **ก่อน** A13 เสมอ — ประกาศเกณฑ์ก่อนเห็นผล ห้ามสลับ)
 
-### ผลเบื้องต้นที่เห็นแล้ว (smoke scale, ยังไม่ใช่การวัดจริง)
+### ผลของการรันทั้งระบบ 200 วัน (`somaos/bench/experiments/agent_life.py`)
+
+601 ความทรงจำ · คลัง 96KB (≈ 1/4 ของที่ต้องใช้จริง) · 0.65 วินาที
+
+| | ผล |
+|---|---|
+| ทุก address ยัง resolve | ✅ ทั้ง 601 |
+| คลังเกิน budget หลังจบ cycle | ❌ ไม่เคย |
+| นิสัยที่เกิดเอง | `coffee + inbox (21x)` · `river + walk (21x)` — จากกิจวัตร ไม่ใช่จากเรื่องจร |
+| วันที่ agent กลับไปนึกถึงบ่อย | ยัง D1_INT8 · fidelity 1.0 · **การเดินแบบเย็น ๆ ยังหาเจอ** |
+| วันที่ไม่เคยกลับไปนึกถึง | ตกลง D2_BINARY · ยัง resolve ได้ · ยังชี้หัวข้อตัวเองถูก 0.495 |
+
+**บั๊ก 4 ตัวที่เจอจากการรันนี้** (ทั้งหมดจบลงที่ loop เก็บกวาดที่ไม่มีวันจบ):
+address ที่ปลดระวางแล้วกลับมามีชีวิต · node เป็นบรรพบุรุษของตัวเอง ·
+D3 เขียนทับเวกเตอร์ของแม่ (ยกเลิกแล้ว ดู `03` §3.5) · การนึกซ้ำไม่ป้องกันการเจือจาง (แก้แล้ว §3.6)
+
+### ผลเบื้องต้นอื่น ๆ (smoke scale, ยังไม่ใช่การวัดจริง)
 
 `python -m somaos.bench.experiments.capacity_curve` — 96 ความทรงจำ ลดคลังจาก 200KB → 200B:
 
