@@ -1,0 +1,430 @@
+<title>ความจำของ AI ที่ลืมแบบคน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    color-scheme: light;
+    --ground:      #F3F1EC;
+    --surface:     #FCFCFB;
+    --surface-2:   #EDEAE3;
+    --line:        #D8D3C8;
+    --line-soft:   #E5E1D8;
+    --ink:         #1A1917;
+    --ink-2:       #52514E;
+    --ink-3:       #7C7A73;
+    --series-1:    #2a78d6;
+    --series-2:    #eb6834;
+    --good:        #1baf7a;
+    --sans: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground:    #141412;
+      --surface:   #1D1D1A;
+      --surface-2: #262622;
+      --line:      #3A3A34;
+      --line-soft: #2C2C27;
+      --ink:       #F2F0EA;
+      --ink-2:     #C3C2B7;
+      --ink-3:     #908E85;
+      --series-1:  #3987e5;
+      --series-2:  #d95926;
+      --good:      #199e70;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:    #141412;
+    --surface:   #1D1D1A;
+    --surface-2: #262622;
+    --line:      #3A3A34;
+    --line-soft: #2C2C27;
+    --ink:       #F2F0EA;
+    --ink-2:     #C3C2B7;
+    --ink-3:     #908E85;
+    --series-1:  #3987e5;
+    --series-2:  #d95926;
+    --good:      #199e70;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 17px; line-height: 1.85;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 1.4rem 6rem; }
+
+  header { padding: 4rem 0 2.5rem; }
+  .kicker {
+    font-family: var(--mono); font-size: .75rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 1.2rem;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3.2rem); line-height: 1.12; font-weight: 700;
+    letter-spacing: -.02em; margin: 0 0 1.2rem; text-wrap: balance;
+  }
+  .dek { font-size: 1.22rem; color: var(--ink-2); margin: 0; max-width: 34rem; }
+
+  h2 {
+    font-size: 1.5rem; font-weight: 600; margin: 3.5rem 0 .8rem;
+    letter-spacing: -.01em; text-wrap: balance;
+  }
+  h3 { font-size: 1.08rem; font-weight: 600; margin: 2.2rem 0 .5rem; }
+  p { margin: 0 0 1.1rem; }
+  .lead { font-size: 1.08rem; color: var(--ink-2); }
+  strong { font-weight: 600; }
+  em.q { font-style: normal; color: var(--ink-2); }
+
+  hr {
+    border: 0; height: 1px; background: var(--line);
+    margin: 3.5rem 0 0;
+  }
+
+  .pull {
+    font-size: 1.3rem; line-height: 1.55; font-weight: 500;
+    border-left: 3px solid var(--series-1);
+    padding: .3rem 0 .3rem 1.3rem; margin: 2.2rem 0; color: var(--ink);
+    text-wrap: balance;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1.4rem 1.5rem; margin: 2rem 0;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card .label {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: .5rem;
+  }
+
+  .hero {
+    display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap;
+    margin: 2.2rem 0;
+    padding: 1.6rem 1.6rem 1.4rem;
+    background: var(--surface); border: 1px solid var(--line-soft); border-radius: 4px;
+  }
+  .hero .n {
+    font-size: clamp(3rem, 11vw, 4.6rem); font-weight: 700; line-height: .9;
+    letter-spacing: -.04em; color: var(--series-1);
+    font-variant-numeric: tabular-nums;
+  }
+  .hero .t { flex: 1 1 14rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.6; }
+  .hero .t b { color: var(--ink); font-weight: 600; }
+
+  figure {
+    margin: 2.2rem 0; background: var(--surface);
+    border: 1px solid var(--line-soft); border-radius: 4px;
+    padding: 1.4rem 1.2rem 1rem; overflow-x: auto;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--line-soft);
+    font-size: .92rem; color: var(--ink-2); line-height: 1.65;
+  }
+  .legend {
+    display: flex; gap: 1.4rem; flex-wrap: wrap;
+    font-size: .88rem; color: var(--ink-2); margin-bottom: .9rem; padding-left: .3rem;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .ax { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
+  .pt { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
+  .ttl { font-family: var(--sans); font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+
+  ul { padding-left: 1.3rem; margin: 1rem 0 1.4rem; }
+  li { margin-bottom: .6rem; }
+  li::marker { color: var(--ink-3); }
+
+  .scroll { overflow-x: auto; margin: 1.6rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; min-width: 26rem; }
+  th, td { padding: .55rem .7rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  thead th { font-size: .8rem; color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  footer {
+    margin-top: 4rem; padding-top: 1.6rem; border-top: 1px solid var(--line);
+    font-size: .9rem; color: var(--ink-3); line-height: 1.8;
+  }
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2); padding: .1em .35em; border-radius: 3px; }
+  a { color: var(--series-1); text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--series-1); outline-offset: 3px; border-radius: 2px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="kicker">SomaOS · รายงานความคืบหน้า · 28 ส.ค. 2026</p>
+  <h1>ความจำของ AI ที่ลืมแบบคน</h1>
+  <p class="dek">
+    เราสร้างระบบความจำที่ <strong>ไม่ลบอะไรทิ้งเลย</strong> แล้ววัดผลได้ว่ามันลืมเหมือนคนจริง —
+    จำรายละเอียดไม่ได้ แต่ยังรู้ว่าเรื่องนั้นเกี่ยวกับอะไร
+  </p>
+</header>
+
+<hr>
+
+<h2>ปัญหาคืออะไร</h2>
+
+<p class="lead">
+  AI ทุกวันนี้จำอะไรไม่ได้นานครับ มันมี “ที่ว่างสำหรับคิด” จำกัดมาก
+  เหมือนโต๊ะทำงานเล็ก ๆ ที่วางของได้ไม่กี่ชิ้น พอมีเรื่องใหม่เข้ามา ของเก่าก็ต้องออกจากโต๊ะ
+</p>
+
+<p>
+  วิธีที่ใช้กันทั่วไปตอนนี้คือ <strong>เอาของเก่าไปกองไว้ในโกดัง</strong> แล้วเวลาต้องใช้ก็ไปค้นเอา
+  ฟังดูดี แต่มีปัญหาสองอย่าง
+</p>
+
+<ul>
+  <li><strong>พอโกดังเต็ม ก็ต้องทิ้งของ</strong> — และของที่ทิ้งไปแล้วหายถาวร</li>
+  <li><strong>ทุกครั้งที่จะนึกอะไร ต้องเดินดูทั้งโกดัง</strong> — ยิ่งจำเยอะ ยิ่งช้า</li>
+</ul>
+
+<p>
+  คนไม่ได้ทำแบบนั้น คุณจำไม่ได้แล้วว่ามื้อเที่ยงวันอังคารที่แล้วกินอะไร
+  แต่ถ้าถามว่า <em class="q">“ช่วงนั้นชีวิตเป็นยังไง”</em> คุณตอบได้ทันที
+  <strong>รายละเอียดหายไป แต่แก่นยังอยู่</strong> — และไม่มีวันไหนที่ความทรงจำถูก “ลบ” จริง ๆ
+</p>
+
+<hr>
+
+<h2>เราทำอะไร</h2>
+
+<p class="lead">
+  ออกแบบระบบความจำใหม่ทั้งหมด โดยยึดงานวิจัยเรื่องความจำมนุษย์เป็นแบบ ไม่ใช่เดาเอาเอง
+</p>
+
+<p>หลักการมีสามข้อ</p>
+
+<div class="card">
+  <span class="label">หนึ่ง</span>
+  <p><strong>ไม่ลบอะไรทั้งนั้น</strong> — ความทรงจำจะ “จาง” ลงเป็นขั้น ๆ จนเหลือแค่เค้าโครง
+  แต่ไม่มีขั้นไหนที่แปลว่าหายไป</p>
+</div>
+
+<div class="card">
+  <span class="label">สอง</span>
+  <p><strong>ลืมมีสองแบบ ที่ไม่เกี่ยวกัน</strong> — “นึกไม่ค่อยออก” (ต้องใช้เวลาค้นนานขึ้น)
+  กับ “จำรายละเอียดไม่ได้” (เหลือแต่แก่น) สองอย่างนี้เกิดจากคนละสาเหตุ
+  อย่างแรกเกิดเพราะไม่ได้ใช้มานาน อย่างหลังเกิดเพราะที่เก็บเต็ม</p>
+</div>
+
+<div class="card">
+  <span class="label">สาม</span>
+  <p><strong>แยกเก็บตามหน้าที่</strong> — เหมือนที่สมองคนแยก “นิสัย” ออกจาก “เหตุการณ์เมื่อวาน”
+  ไม่ได้กองรวมกัน</p>
+</div>
+
+<h3>ห้องความจำสี่ห้อง</h3>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>ห้อง</th><th>เก็บอะไร</th><th>ใช้ยังไง</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>ตัวตน</strong></td><td>นิสัย ค่านิยม วิธีพูด</td><td>อยู่กับตัวตลอด ไม่ต้องเรียก และ<strong>ไม่มีวันจาง</strong></td></tr>
+    <tr><td><strong>ความตั้งใจ</strong></td><td>“ตอนเช้าให้ทำ X” “ถ้าเจอ Y ให้ทำ Z”</td><td>รออยู่เงียบ ๆ ไม่กินที่ พอถึงเวลาก็ผุดขึ้นเอง</td></tr>
+    <tr><td><strong>ทักษะ</strong></td><td>วิธีทำ สิ่งที่ทำเป็นประจำ</td><td>สถานการณ์คุ้น ๆ มาปุ๊บ มันมาเอง ไม่ต้องนั่งค้น</td></tr>
+    <tr><td><strong>ประสบการณ์</strong></td><td>เรื่องราวทั้งหมดที่ผ่านมา</td><td>ต้องนึกถึงจึงจะดึงมา และเป็นห้องที่จางได้</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  <strong>นิสัยเกิดขึ้นเองโดยไม่มีใครสอน</strong> — ถ้าระบบเห็นว่าทำอะไรซ้ำ ๆ นานพอ
+  มันจะยกสิ่งนั้นขึ้นมาเป็น “นิสัย” เอง ในการทดลอง 200 วัน มันสร้างนิสัยขึ้นมาสองอย่างเอง
+  จากกิจวัตรที่เกิดซ้ำ 21 ครั้ง โดยไม่ไปหยิบเรื่องจร ๆ มาปนเลย
+</p>
+
+<hr>
+
+<h2>ผลออกมาเป็นยังไง</h2>
+
+<p class="lead">
+  เราสร้างโลกจำลอง ให้ระบบทั้งห้าแบบใช้ชีวิตในโลกเดียวกัน
+  แล้วถามคำถามเดียวกัน ภายใต้ข้อจำกัดเท่ากันทุกอย่าง
+</p>
+
+<h3>1. พอที่เก็บเล็กลง อะไรหายก่อน</h3>
+
+<figure>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร (แก่น)</span>
+    <span><i class="swatch" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
+  </div>
+  <svg viewBox="0 0 660 240" role="img" aria-label="กราฟเปรียบเทียบ: เมื่อลดขนาดที่เก็บลง 40 เท่า SomaOS ยังจำแก่นได้เกือบเต็มตลอด ขณะที่รายละเอียดค่อย ๆ หาย ส่วนวิธีทั่วไปเสียทั้งสองอย่าง">
+    <text class="ttl" x="14" y="16">SomaOS</text>
+    <text class="ttl" x="354" y="16">วิธีที่ใช้กันทั่วไป</text>
+
+    <!-- panel A grid -->
+    <g stroke="currentColor" stroke-opacity=".12">
+      <line x1="48" y1="34" x2="304" y2="34"/><line x1="48" y1="103" x2="304" y2="103"/><line x1="48" y1="172" x2="304" y2="172"/>
+      <line x1="388" y1="34" x2="644" y2="34"/><line x1="388" y1="103" x2="644" y2="103"/><line x1="388" y1="172" x2="644" y2="172"/>
+    </g>
+    <text class="ax" x="42" y="38" text-anchor="end">100%</text>
+    <text class="ax" x="42" y="107" text-anchor="end">50%</text>
+    <text class="ax" x="42" y="176" text-anchor="end">0</text>
+
+    <!-- SomaOS: gist flat -->
+    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
+      points="48,34.7 112,34.7 176,34.7 240,34.7 304,36.2"/>
+    <!-- SomaOS: detail falls -->
+    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
+      points="48,34 112,35.8 176,64.8 240,113.8 304,147.4"/>
+    <g fill="var(--series-1)"><circle cx="48" cy="34.7" r="3.4"/><circle cx="304" cy="36.2" r="3.4"/></g>
+    <g fill="var(--series-2)"><circle cx="48" cy="34" r="3.4"/><circle cx="304" cy="147.4" r="3.4"/></g>
+    <text class="pt" x="298" y="28" text-anchor="end" fill="var(--series-1)">98%</text>
+    <text class="pt" x="298" y="163" text-anchor="end" fill="var(--series-2)">18%</text>
+
+    <!-- typical: gist wobbles then drops -->
+    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
+      points="388,60 452,52.5 516,37.7 580,38.6 644,57"/>
+    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
+      points="388,34 452,69.2 516,104.8 580,132.1 644,164.7"/>
+    <g fill="var(--series-1)"><circle cx="388" cy="60" r="3.4"/><circle cx="644" cy="57" r="3.4"/></g>
+    <g fill="var(--series-2)"><circle cx="388" cy="34" r="3.4"/><circle cx="644" cy="164.7" r="3.4"/></g>
+    <text class="pt" x="638" y="50" text-anchor="end" fill="var(--series-1)">83%</text>
+    <text class="pt" x="638" y="180" text-anchor="end" fill="var(--series-2)">5%</text>
+
+    <!-- axes -->
+    <g stroke="currentColor" stroke-opacity=".3">
+      <line x1="48" y1="172" x2="304" y2="172"/><line x1="388" y1="172" x2="644" y2="172"/>
+    </g>
+    <text class="ax" x="48" y="192">ที่เก็บใหญ่</text>
+    <text class="ax" x="304" y="192" text-anchor="end">เล็กลง 40 เท่า</text>
+    <text class="ax" x="388" y="192">ที่เก็บใหญ่</text>
+    <text class="ax" x="644" y="192" text-anchor="end">เล็กลง 40 เท่า</text>
+    <text class="ax" x="48" y="216">ยิ่งไปทางขวา = ที่เก็บยิ่งเล็ก · เฉลี่ยจาก 3 การทดลอง</text>
+  </svg>
+  <figcaption>
+    <strong>เส้นน้ำเงินของ SomaOS แบนราบเกือบตลอด</strong> — บีบที่เก็บให้เล็กลง 40 เท่า
+    มันก็ยังรู้ว่าเรื่องนั้นเกี่ยวกับอะไรอยู่ (98%) ขณะที่รายละเอียดค่อย ๆ หายไป
+    ส่วนวิธีทั่วไปเสียทั้งสองอย่างพร้อมกัน — นี่คือความต่างระหว่าง <em class="q">“ลืมรายละเอียด”</em>
+    กับ <em class="q">“ของหาย”</em>
+  </figcaption>
+</figure>
+
+<h3>2. ใช้ที่ว่างบนโต๊ะน้อยกว่ามาก</h3>
+
+<div class="hero">
+  <span class="n">16×</span>
+  <span class="t">
+    SomaOS ตอบคำถามได้ดีกว่า <b>โดยใช้ที่ว่างบนโต๊ะน้อยกว่า 16 เท่า</b><br>
+    ที่พื้นที่เท่ากับ 64 หน่วย มันตอบถูก 99% — ส่วนวิธีทั่วไปให้พื้นที่ถึง 1,024 หน่วย
+    ก็ยังตอบรายละเอียดได้แค่ 76%
+  </span>
+</div>
+
+<p>
+  และที่น่าสนใจกว่านั้นคือ <strong>ให้พื้นที่เพิ่มไปมันก็ไม่เอา</strong> — SomaOS ใช้จริงอยู่แค่ราว ๆ ครึ่งเดียว
+  ของที่ให้ ขณะที่วิธีทั่วไปใช้จนเต็มทุกครั้งที่มีให้ นี่คือความต่างระหว่าง
+  <em class="q">“หยิบมาเท่าที่ต้องใช้”</em> กับ <em class="q">“ยัดมาให้มากที่สุด”</em>
+</p>
+
+<h3>3. “พยายามนึก” เป็นปุ่มที่หมุนได้จริง</h3>
+
+<figure>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร</span>
+    <span><i class="swatch" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
+  </div>
+  <svg viewBox="0 0 660 220" role="img" aria-label="กราฟ: เมื่อเพิ่มความพยายามในการนึกจาก 4 ก้าวเป็น 64 ก้าว ความสามารถจำแก่นคงที่ที่ 98 เปอร์เซ็นต์ตลอด ส่วนการจำรายละเอียดไต่จาก 74 ขึ้นไป 96 เปอร์เซ็นต์">
+    <g stroke="currentColor" stroke-opacity=".12">
+      <line x1="70" y1="30" x2="600" y2="30"/><line x1="70" y1="99" x2="600" y2="99"/><line x1="70" y1="168" x2="600" y2="168"/>
+    </g>
+    <text class="ax" x="64" y="34" text-anchor="end">100%</text>
+    <text class="ax" x="64" y="103" text-anchor="end">50%</text>
+    <text class="ax" x="64" y="172" text-anchor="end">0</text>
+
+    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
+      points="70,33.3 202,33.3 335,33.3 467,33.3 600,33.3"/>
+    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
+      points="70,66.4 202,48.2 335,40.4 467,35.2 600,35.2"/>
+    <g fill="var(--series-1)"><circle cx="70" cy="33.3" r="3.6"/><circle cx="600" cy="33.3" r="3.6"/></g>
+    <g fill="var(--series-2)"><circle cx="70" cy="66.4" r="3.6"/><circle cx="600" cy="35.2" r="3.6"/></g>
+
+    <text class="pt" x="70" y="24" fill="var(--series-1)">98%</text>
+    <text class="pt" x="70" y="84" fill="var(--series-2)">74%</text>
+    <text class="pt" x="600" y="52" text-anchor="end" fill="var(--series-2)">96%</text>
+
+    <g stroke="currentColor" stroke-opacity=".3"><line x1="70" y1="168" x2="600" y2="168"/></g>
+    <text class="ax" x="70" y="188" text-anchor="middle">4 ก้าว</text>
+    <text class="ax" x="202" y="188" text-anchor="middle">8</text>
+    <text class="ax" x="335" y="188" text-anchor="middle">16</text>
+    <text class="ax" x="467" y="188" text-anchor="middle">32</text>
+    <text class="ax" x="600" y="188" text-anchor="middle">64 ก้าว</text>
+    <text class="ax" x="70" y="210">ความพยายามในการนึก →</text>
+  </svg>
+  <figcaption>
+    <strong>แก่นมาทันทีตั้งแต่ก้าวแรก ๆ ส่วนรายละเอียดคือสิ่งที่ความพยายามซื้อมา</strong>
+    ที่ 4 ก้าว ระบบทำงานน้อยกว่าการค้นทั้งโกดังถึง 6 เท่า และตอบ “เรื่องนั้นเกี่ยวกับอะไร” ได้ 98% แล้ว
+    ตรงกับที่คนรู้สึกเวลานึกอะไรไม่ออก — เรารู้คร่าว ๆ ทันที แต่ต้องนึกอยู่พักหนึ่งกว่าจะได้รายละเอียด
+  </figcaption>
+</figure>
+
+<p class="pull">
+  สรุปคือ ระบบนี้ <strong>จำได้มากกว่า ใช้ที่น้อยกว่า และทำงานน้อยกว่า</strong>
+  พร้อมกันทั้งสามอย่าง — ในโลกจำลอง
+</p>
+
+<hr>
+
+<h2>สิ่งที่ยังไม่ดี (พูดตรง ๆ)</h2>
+
+<p class="lead">
+  ส่วนนี้สำคัญพอ ๆ กับผลข้างบน เพราะโปรเจกต์นี้ตั้งกฎไว้ตั้งแต่ต้นว่า
+  <strong>ถ้าวัดไม่ผ่านให้รายงานตามนั้น ห้ามแก้ตัวเลข</strong>
+</p>
+
+<ul>
+  <li><strong>ยังเป็นโลกจำลองทั้งหมด</strong> — ยังไม่ได้ต่อกับ AI ตัวจริง และยังไม่ได้ใช้เทคโนโลยี
+    เข้าใจภาษาจริง ตัวเลขที่เห็นจึงเป็น “โครงสร้างใช้ได้” ไม่ใช่ “ใช้งานได้จริงแล้ว”</li>
+  <li><strong>เกณฑ์ความเร็วที่ตั้งไว้ยังไม่ผ่าน</strong> — เราตั้งเป้าว่าต้นทุนการนึกต้องโตช้ากว่านี้
+    ตอนนี้มันโตช้ากว่าวิธีเดิมจริง แต่ยังไม่ถึงเป้าที่เขียนไว้เอง
+    ต้องตัดสินว่าจะแก้โครงสร้าง หรือเป้าที่ตั้งไว้ไม่สมเหตุสมผลตั้งแต่แรก</li>
+  <li><strong>ถ้าบีบที่เก็บจนสุด ๆ ทุกอย่างก็แย่ลง</strong> — ที่ขนาดเล็กสุด รายละเอียดเหลือ 18%
+    ยังดีกว่าวิธีอื่น (5%) แต่ก็ไม่ใช่ตัวเลขที่น่าพอใจ</li>
+  <li><strong>ค่าปรับแต่งหลายตัวยังตั้งมือ</strong> — เช่น “ทำซ้ำกี่ครั้งถึงนับเป็นนิสัย”
+    ยังไม่ได้หาค่าที่ดีที่สุดอย่างเป็นระบบ</li>
+  <li><strong>ผลชุดนี้ยังไม่ใช่คำตัดสิน</strong> — เราตั้งกติกาไว้ว่าต้องประกาศเกณฑ์ก่อน
+    แล้ววัดกับข้อมูลชุดที่ไม่เคยเห็นเพียงครั้งเดียว ตัวเลขข้างบนมาจากข้อมูลชุดที่ใช้พัฒนา
+    <strong>ยังไม่ใช่การสอบจริง</strong></li>
+</ul>
+
+<div class="card">
+  <span class="label">เรื่องที่น่าสนใจระหว่างทาง</span>
+  <p>
+    การลงมือวัดผลจริง ทำให้เจอว่าตัวเองออกแบบผิดไป 6 จุด และทุกจุดเจอเพราะ<strong>วัด ไม่ใช่เพราะคิด</strong>
+    ตัวที่หนักที่สุดคือระบบเคย “นึกถึงแต่เรื่องล่าสุด” ไม่ว่าจะถามอะไร —
+    เหมือนถามถึงงานแต่งงาน แล้วมันเล่าเรื่องข้าวเช้าให้ฟัง เพราะข้าวเช้าใกล้กว่า
+    ก่อนแก้ ระบบหาของเจอแค่ 3% หลังแก้ 100%
+  </p>
+</div>
+
+<hr>
+
+<h2>ต่อไปทำอะไร</h2>
+
+<ul>
+  <li><strong>ตัดสินเรื่องเกณฑ์ความเร็ว</strong> ที่ยังไม่ผ่าน — ก่อนจะไปสอบจริง</li>
+  <li><strong>ประกาศเกณฑ์การสอบให้ครบ</strong> แล้วค่อยวัดกับข้อมูลชุดใหม่ครั้งเดียว</li>
+  <li><strong>ต่อกับ AI ตัวจริง</strong> เมื่อพร้อม — จุดเชื่อมออกแบบเผื่อไว้แล้วสองจุด
+    และมีทางสำรองที่ทำงานได้เองโดยไม่ต้องพึ่ง AI เสมอ เพื่อจะได้วัดได้ว่า
+    “การให้ AI เลือกเอง” เพิ่มค่าจริงเท่าไหร่</li>
+</ul>
+
+<footer>
+  ทดลองซ้ำได้ทั้งหมด · <code>python -m somaos.bench.experiments.curves</code><br>
+  โค้ดและเอกสารทั้งหมดอยู่บน branch <code>claude/current-phase-progress-t8jqdr</code> · ทดสอบอัตโนมัติ 552 ข้อ ผ่านทั้งหมด<br>
+  รายละเอียดเชิงเทคนิค: <code>plans/03_MEMORY_ARCHITECTURE.md</code> ·
+  พื้นฐานงานวิจัย: <code>plans/04_HUMAN_MEMORY_BASIS.md</code>
+</footer>
+
+</div>
