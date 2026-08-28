@@ -42,7 +42,7 @@ from somaos.broker.memory.node import (
     WALK_ENTRY_LEVEL,
     make_node,
 )
-from somaos.broker.memory.vector import Grade, encode, similarity
+from somaos.broker.memory.vector import Grade, similarity
 
 #: How much of the gap to full strength one use closes. 0.5 means a single
 #: retrieval halves the distance to 1.0 -- fast enough that one deliberate
@@ -72,6 +72,21 @@ def _compose(previous: float, step: float) -> float:
 
 class UnknownAddress(KeyError):
     """Raised for an address the tree has never seen. Distinct from a diluted one."""
+
+
+class AddressCollision(RuntimeError):
+    """A node's new content collides with one of its own descendants.
+
+    Most collisions are not errors at all: two memories that have faded to
+    the same representation *are* indistinguishable, and merging them is
+    what dilution means -- distinct experiences blurring into one as detail
+    goes. ``replace_node`` handles that case by merging.
+
+    This is the case it cannot: when the colliding node sits below the one
+    being replaced, taking that address would make a node its own ancestor.
+    The caller has to skip instead. Proceeding corrupts the tree in a way
+    that surfaces much later, as a walk that never terminates.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,21 +177,31 @@ class MemoryTree:
         existing address: that is the dedupe N-07 buys, and it must not
         silently create a second copy with different statistics.
         """
+        # An address that has been retired must not come back to life. The
+        # content is the same, but it has since been diluted and forwarded,
+        # and re-inserting it here would leave two live nodes for one
+        # address -- the fresh copy under the old address and the faded one
+        # the alias points at -- so resolve() would answer with one while
+        # everything else operated on the other. Perceiving retired content
+        # again is a repeat occurrence of what it became, not a new memory.
+        current = self.alias.resolve(node.addr)
+        if current != node.addr:
+            keeper = self._entries.get(current)
+            if keeper is None:
+                # A forwarding chain that ends nowhere means something
+                # deleted a node without leaving an alias. Fail loudly here
+                # rather than inserting at the retired address, which would
+                # leave the address both live and forwarded -- a state that
+                # surfaces much later as a walk that never terminates.
+                raise UnknownAddress(
+                    f"{node.addr} forwards to {current}, which is not in the tree"
+                )
+            self._record_repeat(keeper, node, tick)
+            return current
+
         if node.addr in self._entries:
             existing = self._entries[node.addr]
-            existing.occurrences += 1
-            existing.node = replace(
-                existing.node,
-                span=(
-                    min(existing.node.span[0], node.span[0]),
-                    max(existing.node.span[1], node.span[1]),
-                ),
-            )
-            self._apply_decay(existing, tick)
-            # Living through it again makes it more available, the same way
-            # retrieving it would.
-            gap = 1.0 - existing.retrieval_strength
-            existing.retrieval_strength = min(1.0, existing.retrieval_strength + gap * USE_GAIN)
+            self._record_repeat(existing, node, tick)
             return node.addr
         if parent is not None:
             parent = self.alias.resolve(parent)
@@ -199,6 +224,21 @@ class MemoryTree:
         for key in node.keys:
             self._by_key.setdefault(key, set()).add(node.addr)
         return node.addr
+
+    def _record_repeat(self, entry: _Entry, node: MemoryNode, tick: int) -> None:
+        """Living through the same thing again: count it, widen its span,
+        and make it as available as recalling it would."""
+        entry.occurrences += 1
+        entry.node = replace(
+            entry.node,
+            span=(
+                min(entry.node.span[0], node.span[0]),
+                max(entry.node.span[1], node.span[1]),
+            ),
+        )
+        self._apply_decay(entry, tick)
+        gap = 1.0 - entry.retrieval_strength
+        entry.retrieval_strength = min(1.0, entry.retrieval_strength + gap * USE_GAIN)
 
     # ------------------------------------------------------------ resolving
 
@@ -374,6 +414,29 @@ class MemoryTree:
         if new_node.addr == old_addr:
             return old_addr
 
+        # Where does this content already live? Either it is held by a live
+        # node, or it was held by one that has since been retired and
+        # forwarded. Both are collisions, and both resolve the same way:
+        # merge, because two memories that have faded to the same
+        # representation are the same memory now. What must never happen is
+        # taking the address anyway -- that leaves one address both live and
+        # forwarded, and the corruption only surfaces later as a walk that
+        # never terminates.
+        holder = self.alias.resolve(new_node.addr)
+        if holder != new_node.addr or new_node.addr in self._entries:
+            if holder not in self._entries:
+                raise UnknownAddress(
+                    f"{new_node.addr} forwards to {holder}, which is not in the tree"
+                )
+            if holder == old_addr:
+                return old_addr
+            if self._is_descendant(holder, of=old_addr):
+                raise AddressCollision(
+                    f"{old_addr} would take the address of its own descendant "
+                    f"{holder}; skip this node instead"
+                )
+            return self._merge_into(old_addr, holder, entry)
+
         self._entries[new_node.addr] = _Entry(
             node=new_node,
             stat=entry.stat,
@@ -400,6 +463,65 @@ class MemoryTree:
         self.alias.add(old_addr, new_node.addr)
         self._step_cosine[old_addr] = similarity(entry.node.vec, new_node.vec)
         return new_node.addr
+
+    def _is_descendant(self, addr: str, *, of: str) -> bool:
+        """Does ``addr`` sit somewhere below ``of``?"""
+        walker = self._entries[addr].node.parent
+        seen = set()
+        while walker is not None and walker not in seen:
+            if walker == of:
+                return True
+            seen.add(walker)
+            entry = self._entries.get(walker)
+            walker = entry.node.parent if entry else None
+        return False
+
+    def _merge_into(self, old_addr: str, survivor: str, entry: _Entry) -> str:
+        """Two memories have faded into the same thing. Keep one.
+
+        This is not a failure mode; it is dilution working. Once two
+        experiences quantise to the same vector there is nothing left that
+        distinguishes them, and pretending otherwise would mean keeping two
+        nodes that no walk could ever tell apart. The survivor absorbs the
+        other's occurrences and children, and the retired address forwards,
+        so both are still answerable -- with the same answer, which is the
+        truthful one.
+        """
+        keeper = self._entries[survivor]
+        keeper.occurrences += entry.occurrences
+        keeper.stat.use_count += entry.stat.use_count
+        keeper.stat.last_used_tick = max(
+            keeper.stat.last_used_tick, entry.stat.last_used_tick
+        )
+        keeper.retrieval_strength = max(keeper.retrieval_strength, entry.retrieval_strength)
+        keeper.node = replace(
+            keeper.node,
+            span=(
+                min(keeper.node.span[0], entry.node.span[0]),
+                max(keeper.node.span[1], entry.node.span[1]),
+            ),
+        )
+
+        for child in self._children.pop(old_addr, []):
+            child_entry = self._entries[child]
+            child_entry.node = replace(child_entry.node, parent=survivor)
+            self._children.setdefault(survivor, []).append(child)
+
+        parent = entry.node.parent
+        if parent is not None:
+            parent = self.alias.resolve(parent)
+            self._children[parent] = [
+                c for c in self._children.get(parent, []) if c != old_addr
+            ]
+
+        self._by_region[entry.node.region].discard(old_addr)
+        for key in entry.node.keys:
+            self._by_key.get(key, set()).discard(old_addr)
+        del self._entries[old_addr]
+
+        self.alias.add(old_addr, survivor)
+        self._step_cosine[old_addr] = similarity(entry.node.vec, keeper.node.vec)
+        return survivor
 
     def dissolve_into_parent(self, addr: str, *, counted: bool = False) -> str:
         """Fold a node into its parent (D3), or tally it away (D4).
@@ -439,13 +561,23 @@ class MemoryTree:
         self._children.pop(addr, None)
         self._children[parent] = [c for c in self._children[parent] if c != addr]
 
+        parent_entry = self._entries[parent]
+        # n_merged and span are not part of the content address, so the
+        # parent can record that it now stands for more without becoming a
+        # different node.
+        parent_entry.node = replace(
+            parent_entry.node,
+            n_merged=parent_entry.node.n_merged + (0 if counted else entry.node.n_merged),
+            span=(
+                min(parent_entry.node.span[0], entry.node.span[0]),
+                max(parent_entry.node.span[1], entry.node.span[1]),
+            ),
+        )
+
         self._by_region[entry.node.region].discard(addr)
         for key in entry.node.keys:
             self._by_key.get(key, set()).discard(addr)
         del self._entries[addr]
-
-        if not counted:
-            parent = self._absorb(parent, entry.node)
 
         self.alias.add(addr, parent)
         self.counters[parent] = self.counters.get(parent, 0) + entry.node.n_merged
@@ -453,39 +585,6 @@ class MemoryTree:
             entry.node.vec, self._entries[parent].node.vec
         )
         return parent
-
-    def _absorb(self, parent: str, child: MemoryNode) -> str:
-        """Average ``child`` into ``parent``'s centroid, weighted by how many
-        memories each already stands for.
-
-        The parent's own fidelity falls as a result: it has moved away from
-        what it originally was in order to speak for more. That is the
-        honest accounting -- a summary that covers more ground says less
-        about any one thing.
-        """
-        entry = self._entries[parent]
-        node = entry.node
-        weight_p, weight_c = float(node.n_merged), float(child.n_merged)
-        blended = (
-            np.asarray(node.vec, dtype=np.float32) * weight_p
-            + np.asarray(child.vec, dtype=np.float32) * weight_c
-        ) / (weight_p + weight_c)
-        if node.grade is not Grade.D0_EXACT:
-            blended = encode(blended, node.grade)
-        merged = make_node(
-            region=node.region, level=node.level, vec=blended, grade=node.grade,
-            parent=node.parent, children=node.children,
-            n_merged=node.n_merged + child.n_merged,
-            span=(min(node.span[0], child.span[0]), max(node.span[1], child.span[1])),
-            keys=node.keys, text_ref=node.text_ref, raw_refs=node.raw_refs,
-        )
-        merged = replace(
-            merged,
-            fidelity=_compose(node.fidelity, similarity(node.vec, blended)),
-        )
-        if merged.addr == parent:
-            return parent
-        return self.replace_node(parent, merged)
 
     def reparent(self, addr: str, new_parent: str) -> None:
         """Move a node under a different parent, keeping its content.
@@ -510,7 +609,8 @@ class MemoryTree:
                 raise ValueError(
                     f"reparenting {addr} under {new_parent} would create a cycle"
                 )
-            walker = self._entries[walker].node.parent
+            entry = self._entries.get(walker)
+            walker = entry.node.parent if entry else None
 
         entry = self._entries[addr]
         old_parent = entry.node.parent

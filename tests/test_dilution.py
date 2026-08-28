@@ -160,14 +160,17 @@ def test_a_memory_too_faded_is_tallied_rather_than_dragging_the_gist():
             assert "too faded" in event.reason
 
 
-def test_absorbing_a_child_costs_the_parent_fidelity_too():
-    """A summary that covers more ground says less about any one thing."""
+def test_a_dissolved_child_makes_its_parent_stand_for_more():
     tree, root, kids = _tree(4)
-    before = tree.get(root).fidelity
     tree.dissolve_into_parent(kids[0])
     survivor = tree.resolve(kids[0]).node
+    assert survivor.addr == root
     assert survivor.n_merged == 2
-    assert survivor.fidelity < before
+    # The parent kept its own vector, so its own fidelity is untouched --
+    # what it lost is not detail about itself, it is the ability to say
+    # anything specific about the child.
+    assert survivor.fidelity == 1.0
+    assert tree.resolve(kids[0]).fidelity < 1.0
 
 
 def test_the_stored_fidelity_is_a_bound_not_a_measurement():
@@ -189,11 +192,12 @@ def test_the_stored_fidelity_is_a_bound_not_a_measurement():
             assert bound <= similarity(original, node.vec) + 1e-6
 
 
-def test_a_tallied_child_does_not_move_the_parent():
+def test_a_tallied_child_adds_to_the_count_but_not_to_the_weight():
+    """D4 says: this happened, and that is all I can vouch for."""
     tree, root, kids = _tree(4)
-    before = tree.get(root).fidelity
+    before = tree.get(root).n_merged
     tree.dissolve_into_parent(kids[0], counted=True)
-    assert tree.get(root).fidelity == before
+    assert tree.get(root).n_merged == before
     assert tree.counters[root] == 1
 
 

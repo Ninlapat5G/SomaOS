@@ -211,8 +211,13 @@ class ConsolidationMachine:
                 text_ref=f"habit: {' + '.join(shared)} ({occurrences}x)",
                 raw_refs=tuple(c.addr for c in children),
             )
-            if habit.addr in tree:
-                continue  # already crystallised; content addressing makes this free
+            # Already crystallised? Content addressing answers that for free
+            # -- but the habit may since have been diluted, in which case its
+            # original address no longer names a live node while still
+            # resolving to the faded one. Checking the tree alone would call
+            # it new every cycle and re-crystallise it forever.
+            if habit.addr in tree or tree.alias.resolve(habit.addr) != habit.addr:
+                continue
             addr = tree.insert(habit, tick=tick)
             out.append(Crystallisation(
                 addr=addr, region=Region.SKILL.name, keys=shared,

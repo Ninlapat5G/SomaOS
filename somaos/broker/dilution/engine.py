@@ -32,7 +32,7 @@ from dataclasses import asdict, dataclass, field, replace
 import numpy as np
 
 from somaos.broker.memory.node import UNDILUTABLE, Region, make_node
-from somaos.broker.memory.tree import MemoryTree
+from somaos.broker.memory.tree import AddressCollision, MemoryTree
 from somaos.broker.memory.vector import Grade, encode, similarity
 
 #: Rungs that a sweep walks, in the order it walks them.
@@ -143,33 +143,65 @@ class DilutionEngine:
             )
 
         produced: list[DilutionEvent] = []
+        # Nodes that cannot take their next rung without colliding with one
+        # of their own descendants. Held aside for this sweep so the loop
+        # keeps making progress rather than choosing the same victim forever.
+        blocked: set[str] = set()
+
         for rung in VECTOR_RUNGS:
             while tree.store_bytes() > self.store_budget_bytes:
-                victim = self._pick(tree, target=rung, tick=tick)
+                victim = self._pick(tree, target=rung, tick=tick, blocked=blocked)
                 if victim is None:
                     break
-                produced.append(self._apply_rung(tree, victim, rung, tick=tick))
+                before = tree.store_bytes()
+                try:
+                    event = self._apply_rung(tree, victim, rung, tick=tick)
+                except AddressCollision:
+                    blocked.add(victim)
+                    continue
+                produced.append(event)
+                if not self._made_progress(tree, victim, before):
+                    blocked.add(victim)
 
         # Dissolution is one pass, not two: whether a memory is folded into
         # its parent's gist (D3) or only tallied (D4) is a property of how
         # far gone that memory already is, not of how many passes the
         # budget needed.
         while tree.store_bytes() > self.store_budget_bytes:
-            victim = self._pick(tree, target=Grade.D3_MERGED, tick=tick)
+            victim = self._pick(tree, target=Grade.D3_MERGED, tick=tick, blocked=blocked)
             if victim is None:
                 break
+            before = tree.store_bytes()
             faded = tree.get(victim).fidelity < COUNTER_FLOOR
             produced.append(self._dissolve(tree, victim, tick=tick, counted=faded))
+            if not self._made_progress(tree, victim, before):
+                blocked.add(victim)
 
         self.log.extend(produced)
         return tuple(produced)
 
+    @staticmethod
+    def _made_progress(tree: MemoryTree, victim: str, bytes_before: int) -> bool:
+        """Did that step actually get us anywhere?
+
+        Every step has to either free bytes or retire the node it acted on.
+        A step that does neither would be chosen again immediately and
+        forever, so the caller sets it aside. Making termination a property
+        of the loop rather than of the correctness of every rung means a bug
+        in a rung costs a wasted step, not a hung agent.
+        """
+        return tree.store_bytes() < bytes_before or tree.get(victim) is None
+
     # ------------------------------------------------------------ internals
 
-    def _candidates(self, tree: MemoryTree, target: Grade) -> list[str]:
+    def _candidates(
+        self, tree: MemoryTree, target: Grade, blocked: frozenset[str] = frozenset()
+    ) -> list[str]:
         out = []
         for region in (Region.ARCHIVE, Region.SKILL):
             for addr in tree.region_members(region):
+                if addr in blocked:
+                    continue
                 node = tree.get(addr)
                 if node is None or not node.may_dilute_to(target):
                     continue
@@ -178,20 +210,38 @@ class DilutionEngine:
                 out.append(addr)
         return out
 
-    def _pick(self, tree: MemoryTree, *, target: Grade, tick: int) -> str | None:
-        """Coldest and deepest first, address as the tie-break.
+    def _pick(
+        self,
+        tree: MemoryTree,
+        *,
+        target: Grade,
+        tick: int,
+        blocked: set[str] | None = None,
+    ) -> str | None:
+        """Least-practised first, then coldest, then deepest.
 
-        Sorting on retrieval strength is what makes disuse the thing that
-        decides. Depth breaks near-ties toward memories already far from
+        Two different things about "unused" matter here, and an earlier
+        version conflated them. Retrieval strength decays, so it says how
+        reachable a memory is *now* -- that is the depth axis, and on its
+        own it let a memory recalled a dozen times be dissolved once
+        everything around it was gone, which is the opposite of what a
+        memory system should do under pressure.
+
+        Cumulative retrievals do not decay. In Bjork's terms that is storage
+        strength, and practice raises it: a memory you keep going back to
+        should not merely be easier to find, it should be harder to lose.
+        So use_count leads the ordering and retrieval strength breaks ties
+        within it. Depth breaks near-ties toward memories already far from
         the entry point, and the address makes the whole choice
         reproducible, which replay needs (N-15).
         """
-        candidates = self._candidates(tree, target)
+        candidates = self._candidates(tree, target, frozenset(blocked or ()))
         if not candidates:
             return None
         return min(
             candidates,
             key=lambda a: (
+                tree.stat(a).use_count,
                 round(tree.retrieval_strength(a, tick=tick), 9),
                 -tree.depth_of(a),
                 a,
