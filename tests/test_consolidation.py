@@ -295,3 +295,139 @@ def test_consolidation_never_loses_an_address():
         machine.run(tree, tick=tick)
     for addr in everything + kids:
         assert tree.resolve(addr) is not None
+
+
+# ---------------------------------------------------------------- width
+
+
+def test_splitting_produces_a_tree_not_a_chain():
+    """The first version moved only the overflow into one bucket, so 600
+    memories under a node came out 9 deep and still 568 wide -- a linked
+    list wearing a tree's shape, and comparisons per recall stayed at the
+    full store size."""
+    tree = MemoryTree(beam=4)
+    parent = _general(tree, "busy")
+    for tick in range(120):
+        _episode(tree, parent, ("busy", f"e{tick}"), tick)
+
+    machine = _machine(max_children=8)
+    for _ in range(6):
+        machine.run(tree, tick=200, window=10 ** 6)
+
+    widest = max(
+        len(tree.children_of(a)) for a in tree.region_members(Region.ARCHIVE)
+    )
+    assert widest <= 8 * 2  # converging, not a chain
+    assert len(tree.children_of(parent)) <= 8 * 2
+
+
+def test_splitting_cuts_the_work_a_recall_has_to_do():
+    """The whole point of depth: fewer comparisons for the same answer."""
+    from somaos.broker.recall import Move, RecallMachine
+
+    def comparisons(max_children):
+        tree = MemoryTree(beam=4)
+        parent = _general(tree, "busy")
+        for tick in range(200):
+            _episode(tree, parent, ("busy", f"e{tick}"), tick)
+        machine = _machine(max_children=max_children)
+        for _ in range(6):
+            machine.run(tree, tick=300, window=10 ** 6)
+
+        tree.reset_comparisons()
+        walk = RecallMachine(tree, ops_budget=32, context_budget_tokens=10 ** 6)
+        walk.begin(topics=("busy",), entities=("e77",), tick=400)
+        while Move.DESCEND in walk.offer():
+            walk.step(Move.DESCEND)
+        walk.finish()
+        return tree.comparisons
+
+    assert comparisons(12) < comparisons(400) / 2
+
+
+def test_groups_are_by_similarity_not_arbitrary_slices():
+    """A bucket has to mean something a walk can steer by."""
+    tree = MemoryTree(beam=4)
+    parent = _general(tree, "mixed")
+    for tick in range(10):
+        _episode(tree, parent, ("mixed", "rain", f"r{tick}"), tick)
+    for tick in range(10, 20):
+        _episode(tree, parent, ("mixed", "code", f"c{tick}"), tick)
+
+    _machine(max_children=8).run(tree, tick=50, window=10 ** 6)
+    buckets = [
+        a for a in tree.region_members(Region.ARCHIVE)
+        if tree.get(a).level == int(ArchiveLevel.GENERAL_EVENT) and a != parent
+    ]
+    assert buckets
+    for bucket in buckets:
+        kinds = {
+            "rain" if "rain" in tree.get(c).keys else "code"
+            for c in tree.children_of(bucket)
+        }
+        assert len(kinds) == 1  # a bucket holds one kind of thing
+
+
+# ---------------------------------------------------------------- identity
+
+
+def test_identity_can_be_given_and_also_earned():
+    from somaos.broker.memory.node import CoreLevel
+    from somaos.broker.regions import CoreSet, Origin
+
+    tree = MemoryTree()
+    core = CoreSet(quota_bytes=20 * D0_BYTES)
+    core.seed(tree, make_node(
+        region=Region.CORE, level=0, vec=embed(("careful",)), keys=("careful",),
+        text_ref="is careful",
+    ), CoreLevel.TRAIT)
+
+    parent = _general(tree, "morning")
+    for tick in range(0, 600, 20):
+        _episode(tree, parent, ("morning", "coffee", "desk"), tick)
+
+    report = _machine(core=core).run(tree, tick=600, window=10 ** 6)
+
+    regions = {c.region for c in report.crystallised}
+    assert regions == {"SKILL", "CORE"}
+    assert len(core.seeded()) == 1
+    assert len(core.emerged()) == 1
+    assert core.origin_of(core.emerged()[0]) is Origin.EMERGED
+    assert core.origin_of(core.seeded()[0]) is Origin.SEEDED
+
+
+def test_a_short_lived_pattern_becomes_a_habit_but_not_a_trait():
+    """Something done fifty times in a week is a project, not a character."""
+    from somaos.broker.regions import CoreSet
+
+    tree = MemoryTree()
+    core = CoreSet(quota_bytes=20 * D0_BYTES)
+    parent = _general(tree, "sprint")
+    for tick in range(30):  # frequent, but all inside a short span
+        _episode(tree, parent, ("sprint", "review", "merge"), tick)
+
+    report = _machine(core=core).run(tree, tick=40, window=10 ** 6)
+    assert {c.region for c in report.crystallised} == {"SKILL"}
+    assert core.emerged() == ()
+
+
+def test_a_full_identity_leaves_the_pattern_as_a_habit():
+    """Identity being full is a configuration fact, not a reason to evict
+    something the agent has already become."""
+    from somaos.broker.memory.node import CoreLevel
+    from somaos.broker.regions import CoreSet
+
+    tree = MemoryTree()
+    core = CoreSet(quota_bytes=D0_BYTES)
+    core.seed(tree, make_node(
+        region=Region.CORE, level=0, vec=embed(("given",)), keys=("given",),
+    ), CoreLevel.TRAIT)
+
+    parent = _general(tree, "morning")
+    for tick in range(0, 600, 20):
+        _episode(tree, parent, ("morning", "coffee", "desk"), tick)
+
+    report = _machine(core=core).run(tree, tick=600, window=10 ** 6)
+    assert {c.region for c in report.crystallised} == {"SKILL"}
+    assert core.emerged() == ()
+    assert len(core.seeded()) == 1

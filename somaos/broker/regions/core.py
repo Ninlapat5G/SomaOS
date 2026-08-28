@@ -10,6 +10,15 @@ plans/04_HUMAN_MEMORY_BASIS.md section 6). The ordering is also the layout
 order in the prompt, which is not a coincidence: the slowest-changing text
 goes first so the prefix stays stable across ticks and stays cacheable.
 
+Identity arrives two ways, and both are supported because both happen to
+people. Some of it is given -- an agent is created with a persona, the way
+a character starts with a temperament -- and ``seed`` puts that in place
+before the agent has lived through anything. The rest is earned:
+consolidation promotes a pattern the agent has actually repeated over a
+long stretch, through ``emerge``. Which of the two a given trait came from
+is recorded, because it matters: a seeded trait is a premise and stays put,
+while an emerged one is a claim the evidence has to keep supporting.
+
 Nothing here is ever diluted (N-06). The quota is a hard cap enforced at
 admission instead: if identity does not fit, that is a configuration
 error to raise, not something to solve by eroding the agent.
@@ -17,6 +26,7 @@ error to raise, not something to solve by eroding the agent.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from somaos.broker.memory.node import CoreLevel, MemoryNode, Region
 from somaos.broker.memory.tree import MemoryTree
@@ -24,6 +34,11 @@ from somaos.broker.memory.tree import MemoryTree
 
 class CoreQuotaExceeded(RuntimeError):
     """Admitting this would push identity past its reserved bytes."""
+
+
+class Origin(Enum):
+    SEEDED = "seeded"    # given at creation -- a premise
+    EMERGED = "emerged"  # earned by repetition -- a claim
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,8 +62,33 @@ class CoreSet:
     quota_bytes: int
     tokens_per_node: int = 32
     _levels: dict[CoreLevel, list[str]] = field(default_factory=dict)
+    _origin: dict[str, Origin] = field(default_factory=dict)
 
-    def admit(self, tree: MemoryTree, node: MemoryNode, level: CoreLevel) -> str:
+    def seed(self, tree: MemoryTree, node: MemoryNode, level: CoreLevel) -> str:
+        """Give the agent a trait it did not have to earn.
+
+        The persona an agent is created with. Seeded traits are premises:
+        they are not subject to demotion, because there is no evidence for
+        them to lose.
+        """
+        return self._admit(tree, node, level, Origin.SEEDED)
+
+    def emerge(self, tree: MemoryTree, node: MemoryNode, level: CoreLevel) -> str:
+        """Promote something the agent has actually repeated into identity.
+
+        Called by consolidation, never by hand. An emerged trait is a claim
+        about a pattern, so unlike a seeded one it can be demoted if the
+        pattern stops holding.
+        """
+        return self._admit(tree, node, level, Origin.EMERGED)
+
+    #: Kept as the old name so existing callers still work; new code should
+    #: say which kind of identity it is adding.
+    admit = seed
+
+    def _admit(
+        self, tree: MemoryTree, node: MemoryNode, level: CoreLevel, origin: Origin
+    ) -> str:
         if node.region is not Region.CORE:
             raise ValueError(f"{node.region.name} nodes do not belong in CORE")
         projected = self.used_bytes(tree) + node.nbytes
@@ -59,8 +99,19 @@ class CoreSet:
                 f"the agent is (N-06)"
             )
         addr = tree.insert(node)
-        self._levels.setdefault(level, []).append(addr)
+        if addr not in self._origin:
+            self._levels.setdefault(level, []).append(addr)
+            self._origin[addr] = origin
         return addr
+
+    def origin_of(self, addr: str) -> Origin | None:
+        return self._origin.get(addr)
+
+    def emerged(self) -> tuple[str, ...]:
+        return tuple(sorted(a for a, o in self._origin.items() if o is Origin.EMERGED))
+
+    def seeded(self) -> tuple[str, ...]:
+        return tuple(sorted(a for a, o in self._origin.items() if o is Origin.SEEDED))
 
     def used_bytes(self, tree: MemoryTree) -> int:
         return sum(

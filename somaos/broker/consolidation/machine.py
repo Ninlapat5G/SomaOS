@@ -24,6 +24,7 @@ cost detail, it would cost the agent the ability to learn who it is.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -38,6 +39,7 @@ from somaos.broker.memory.node import (
     make_node,
 )
 from somaos.broker.memory.tree import MemoryTree
+from somaos.broker.regions.core import CoreQuotaExceeded, CoreSet
 from somaos.broker.memory.vector import similarity
 
 #: How many times something has to happen before it counts as a pattern.
@@ -48,6 +50,20 @@ MIN_REPEATS = 4
 #: "does this every time" and "happened to do it more than once" -- without
 #: it, any busy topic would crystallise into a personality trait.
 COHERENCE = 0.55
+
+#: How many times a habit has to have held before it stops being
+#: something the agent does and becomes something the agent is. Set well
+#: above MIN_REPEATS on purpose: a routine earns a SKILL cheaply, identity
+#: should not be cheap.
+CORE_REPEATS = 12
+
+#: And over how long a stretch. Frequency alone is a routine -- "does this
+#: every morning this week". A trait is a pattern that has survived time,
+#: which is the distinction McAdams draws between characteristic
+#: adaptations, which shift with circumstances, and dispositional traits,
+#: which move over years. Without this a fortnight of anything would become
+#: a personality.
+CORE_SPAN = 200
 
 #: Children above which a node is split. A wide node makes the beam miss
 #: things: with beam b and c children, a walk sees b/c of what is there,
@@ -111,12 +127,20 @@ class ConsolidationMachine:
     Deterministic throughout: every iteration is over a sorted collection,
     so two runs on the same store produce the same structure, which replay
     depends on (N-15).
+
+    Pass ``core`` to let identity grow on its own. Without it the agent only
+    ever has the persona it was seeded with; with it, a pattern that has
+    held for long enough is promoted into CORE and starts shaping every tick
+    rather than waiting to be recalled.
     """
 
     dilution: DilutionEngine
+    core: "CoreSet | None" = None
     min_repeats: int = MIN_REPEATS
     coherence: float = COHERENCE
     max_children: int = MAX_CHILDREN
+    core_repeats: int = CORE_REPEATS
+    core_span: int = CORE_SPAN
     phase: ConsolidationPhase = ConsolidationPhase.AWAKE
 
     def run(self, tree: MemoryTree, *, tick: int, window: int = 256) -> ConsolidationReport:
@@ -224,49 +248,144 @@ class ConsolidationMachine:
                 from_addrs=tuple(c.addr for c in children),
                 coherence=coherence, occurrences=occurrences,
             ))
+
+            promoted = self._promote_to_core(
+                tree, shared, centroid, occurrences, habit.span, addr, tick
+            )
+            if promoted is not None:
+                out.append(promoted)
         return out
+
+    def _promote_to_core(
+        self, tree, shared, centroid, occurrences, span, from_addr, tick
+    ) -> Crystallisation | None:
+        """A habit that has held long enough stops being what the agent does
+        and becomes what the agent is.
+
+        Two bars, and both matter. Frequency says the pattern is real;
+        duration says it is not a phase. Something done fifty times in a
+        week is a project, not a character trait.
+        """
+        if self.core is None:
+            return None
+        if occurrences < self.core_repeats:
+            return None
+        if span[1] - span[0] < self.core_span:
+            return None
+
+        trait = make_node(
+            region=Region.CORE,
+            level=int(CoreLevel.ADAPTATION),
+            vec=centroid,
+            keys=shared,
+            n_merged=occurrences,
+            span=span,
+            text_ref=f"tends to: {' + '.join(shared)}",
+            raw_refs=(from_addr,),
+        )
+        if trait.addr in tree or tree.alias.resolve(trait.addr) != trait.addr:
+            return None
+        try:
+            addr = self.core.emerge(tree, trait, CoreLevel.ADAPTATION)
+        except CoreQuotaExceeded:
+            # Identity is full. That is a fact about the configuration, not
+            # a reason to evict something the agent has already become, so
+            # the pattern simply stays a SKILL.
+            return None
+        return Crystallisation(
+            addr=addr, region=Region.CORE.name, keys=shared,
+            from_addrs=(from_addr,), coherence=1.0, occurrences=occurrences,
+        )
 
     # ------------------------------------------------------------ REBALANCE
 
     def _rebalance(self, tree: MemoryTree, *, tick: int) -> list[str]:
-        """Split nodes that have grown too wide for the beam to see past.
+        """Split nodes too wide for a walk to see past.
 
         A node with far more children than the beam is where a bounded walk
-        silently becomes a lossy one: the walk looks at b of c children and
-        never learns the rest exist. Splitting restores the invariant that
-        depth, not width, is what a walk pays for.
+        quietly becomes a lossy one: the walk looks at b of c children and
+        never learns the rest exist. Worse, ranking children means comparing
+        the cue against every one of them, so a wide node also makes the
+        walk pay the linear scan it was supposed to avoid.
 
-        Splitting inserts an intermediate node rather than moving anything
-        out, so no address changes owner and nothing becomes unreachable.
+        The children are partitioned into groups, one intermediate node per
+        group, so width converts into depth. An earlier version moved only
+        the overflow into a single bucket, which built a linked list rather
+        than a tree -- 600 memories under a node came out 9 deep and still
+        568 wide, and measured comparisons per recall stayed at the full
+        store size. Grouping is by similarity so a bucket means something a
+        walk can steer by, rather than being an arbitrary slice.
+
+        Buckets are inserted between the parent and its children, so no
+        address changes owner and nothing becomes unreachable.
         """
         split: list[str] = []
         for parent in tree.region_members(Region.ARCHIVE):
             node = tree.get(parent)
             if node is None:
                 continue
-            children = sorted(tree.children_of(parent))
+            children = [
+                tree.get(c) for c in sorted(tree.children_of(parent))
+                if tree.get(c) is not None
+            ]
             if len(children) <= self.max_children:
                 continue
-            overflow = [tree.get(c) for c in children[self.max_children:]]
-            overflow = [c for c in overflow if c is not None]
-            if len(overflow) < 2:
-                continue
-            bucket = make_node(
-                region=node.region,
-                level=node.level,
-                vec=_centroid(overflow),
-                keys=node.keys,
-                n_merged=sum(c.n_merged for c in overflow),
-                span=(min(c.span[0] for c in overflow), max(c.span[1] for c in overflow)),
-                text_ref=f"{node.text_ref} (overflow)" if node.text_ref else "",
-            )
-            if bucket.addr in tree:
-                continue
-            bucket_addr = tree.insert(bucket, parent=parent, tick=tick)
-            for child in overflow:
-                tree.reparent(child.addr, bucket_addr)
-            split.append(bucket_addr)
+
+            for group in self._group(children):
+                if len(group) < 2:
+                    continue
+                bucket = make_node(
+                    region=node.region,
+                    level=node.level,
+                    vec=_centroid(group),
+                    keys=node.keys,
+                    n_merged=sum(c.n_merged for c in group),
+                    span=(min(c.span[0] for c in group), max(c.span[1] for c in group)),
+                    text_ref=f"{node.text_ref} ({len(group)})" if node.text_ref else "",
+                )
+                if bucket.addr in tree or tree.alias.resolve(bucket.addr) != bucket.addr:
+                    continue
+                bucket_addr = tree.insert(bucket, parent=parent, tick=tick)
+                for child in group:
+                    tree.reparent(child.addr, bucket_addr)
+                split.append(bucket_addr)
         return split
+
+    def _group(self, children: list[MemoryNode]) -> list[list[MemoryNode]]:
+        """Partition children into groups of at most ``max_children``.
+
+        Seeds are chosen greedily as the children furthest from each other,
+        then everything joins its nearest seed. That is k-center: cheap,
+        deterministic given a sorted input, and it puts things that are
+        alike together, which is the property the walk steers by. A group
+        that still comes out too wide is left for the next cycle to split
+        again, since a bucket is an ordinary node.
+        """
+        k = math.ceil(len(children) / self.max_children)
+        if k < 2:
+            return [children]
+
+        vecs = [np.asarray(c.vec, dtype=np.float32) for c in children]
+        seeds = [0]
+        while len(seeds) < k:
+            far, best = None, None
+            for i in range(len(children)):
+                if i in seeds:
+                    continue
+                worst = min(similarity(vecs[i], vecs[j]) for j in seeds)
+                if best is None or worst < best:
+                    far, best = i, worst
+            if far is None:
+                break
+            seeds.append(far)
+
+        groups: list[list[MemoryNode]] = [[] for _ in seeds]
+        for i, child in enumerate(children):
+            nearest = max(
+                range(len(seeds)), key=lambda si: (similarity(vecs[i], vecs[seeds[si]]), -si)
+            )
+            groups[nearest].append(child)
+        return [g for g in groups if g]
 
 
 def _centroid(nodes: list[MemoryNode]) -> np.ndarray:

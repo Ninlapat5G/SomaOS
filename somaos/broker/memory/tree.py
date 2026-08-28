@@ -58,6 +58,23 @@ DECAY_PER_TICK = 0.999
 #: memory unreachable, which N-01 forbids -- deep is allowed, gone is not.
 MIN_RETRIEVAL_STRENGTH = 1e-3
 
+#: How much accessibility is allowed to move a candidate's rank, on top of
+#: how relevant it is.
+#:
+#: This is additive rather than multiplicative, and the difference is not
+#: cosmetic. Multiplying meant strength spanned three orders of magnitude
+#: (1.0 down to the 1e-3 floor) against similarity's factor of two, so a
+#: freshly touched memory outranked an exact match that had gone cold --
+#: the walk stopped answering the question and started returning whatever
+#: was looked at last. Asked about your wedding you do not recall this
+#: morning's breakfast merely because it is nearer to hand.
+#:
+#: Additive with a small weight gives strength the job it should have:
+#: deciding between candidates of comparable relevance, never overriding
+#: relevance itself. A cold exact match still wins; among two equally apt
+#: memories, the one in recent use surfaces first.
+STRENGTH_WEIGHT = 0.15
+
 
 def _compose(previous: float, step: float) -> float:
     """Angular-distance composition; see dilution.engine.compose_fidelity.
@@ -163,6 +180,12 @@ class MemoryTree:
         #: value (int8, near-lossless) was reported for an address that had
         #: since been binarised, overstating what survived.
         self._step_cosine: dict[str, float] = {}
+        #: Vector comparisons performed. This, not the number of moves, is
+        #: what N-08 is actually about: a walk that takes three steps but
+        #: compares the cue against every memory at each one has not avoided
+        #: the linear scan, it has hidden it. Counting moves would have let
+        #: that claim go unchecked.
+        self.comparisons = 0
         #: Tally of what has been fully dissolved into an ancestor (D4).
         #: Kept so that a counted-away memory can still answer "something
         #: like this happened, n times" rather than nothing at all.
@@ -345,6 +368,9 @@ class MemoryTree:
 
     # ------------------------------------------------------------ walking
 
+    def reset_comparisons(self) -> None:
+        self.comparisons = 0
+
     def entry_points(self, region: Region = Region.ARCHIVE) -> tuple[str, ...]:
         """Where a walk starts: the general-event level, not the root.
 
@@ -364,11 +390,12 @@ class MemoryTree:
     ) -> tuple[tuple[str, float], ...]:
         """Top-``beam`` children of ``addr`` by relevance and accessibility.
 
-        The score multiplies similarity by retrieval strength, which is
-        what makes a cold memory hard rather than impossible to find: it
-        still scores, it just falls below the beam and needs a wider one --
-        that is, more ops -- to surface. Ties break on address so the walk
-        is deterministic (N-15's replay requirement).
+        Relevance leads; accessibility adjusts. A cold memory is harder to
+        find because it slips down the ranking and needs a wider beam --
+        that is, more ops -- to surface, but it is never buried under
+        fresher memories that have nothing to do with the question. See
+        STRENGTH_WEIGHT for why this is a sum and not a product. Ties break
+        on address so the walk is deterministic (N-15's replay requirement).
         """
         width = self.beam if beam is None else beam
         scored = []
@@ -376,7 +403,10 @@ class MemoryTree:
             entry = self._entries[child]
             self._apply_decay(entry, tick)
             sim = similarity(cue, entry.node.vec)
-            scored.append((child, sim * entry.retrieval_strength))
+            self.comparisons += 1
+            scored.append(
+                (child, sim + STRENGTH_WEIGHT * entry.retrieval_strength)
+            )
         scored.sort(key=lambda pair: (-pair[1], pair[0]))
         return tuple(scored[:width])
 

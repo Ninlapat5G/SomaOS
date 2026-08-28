@@ -1,5 +1,5 @@
 """The four regions and the rules that differ between them (N-06)."""
-from somaos.broker.regions.core import CoreSet, CoreZone
+from somaos.broker.regions.core import CoreSet, CoreZone, Origin
 from somaos.broker.regions.trigger import (
     Trigger,
     TriggerKind,
@@ -8,6 +8,6 @@ from somaos.broker.regions.trigger import (
 )
 
 __all__ = [
-    "CoreSet", "CoreZone",
+    "CoreSet", "CoreZone", "Origin",
     "Trigger", "TriggerKind", "TriggerRegistry", "TriggerState",
 ]

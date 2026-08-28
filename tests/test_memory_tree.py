@@ -366,3 +366,48 @@ def test_a_collapsed_fidelity_bound_does_not_mean_the_memory_is_gone():
         resolved = tree.resolve(kid)
         assert resolved.node is not None
         assert 0.0 <= resolved.fidelity <= 1.0
+
+
+def test_a_relevant_cold_memory_beats_a_fresh_irrelevant_one():
+    """Asked about your wedding you do not recall this morning's breakfast
+    merely because it is nearer to hand.
+
+    Ranking used to multiply similarity by retrieval strength. Strength
+    spans three orders of magnitude against similarity's factor of two, so
+    whatever was touched last won every query regardless of the question --
+    reachability for a specific memory measured at 3%, barely above chance.
+    """
+    tree = MemoryTree(beam=1)
+    root = _node(("life",), ArchiveLevel.GENERAL_EVENT)
+    tree.insert(root)
+    wanted = tree.insert(_node(("life", "wedding")), parent=root.addr)
+    distraction = tree.insert(_node(("life", "breakfast")), parent=root.addr)
+
+    tree.touch(distraction, tick=1000)          # fresh
+    tree.retrieval_strength(wanted, tick=1000)  # and the target has gone cold
+
+    ranked = tree.rank_children(root.addr, embed(("life", "wedding")), tick=1000)
+    assert ranked[0][0] == wanted
+
+
+def test_accessibility_still_decides_between_equally_relevant_memories():
+    """Strength's job: break ties, not override the question."""
+    tree = MemoryTree(beam=2)
+    root = _node(("topic",), ArchiveLevel.GENERAL_EVENT)
+    tree.insert(root)
+    warm = tree.insert(_node(("topic", "a")), parent=root.addr)
+    cold = tree.insert(_node(("topic", "b")), parent=root.addr)
+    tree.touch(warm, tick=900)
+
+    ranked = tree.rank_children(root.addr, embed(("topic",)), tick=900)
+    assert ranked[0][0] == warm
+    assert cold in {addr for addr, _ in ranked}
+
+
+def test_comparisons_are_counted_so_the_linear_scan_claim_is_checkable():
+    """A walk that takes three steps but compares the cue against every
+    memory at each one has hidden the scan, not avoided it."""
+    tree, root, _ = _tree_with_children(30)
+    tree.reset_comparisons()
+    tree.rank_children(root, embed(("work",)), tick=0)
+    assert tree.comparisons == 30

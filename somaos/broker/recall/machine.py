@@ -37,7 +37,7 @@ from enum import Enum
 import numpy as np
 
 from somaos.broker.memory.node import MemoryNode, Region
-from somaos.broker.memory.tree import MemoryTree
+from somaos.broker.memory.tree import STRENGTH_WEIGHT, MemoryTree
 from somaos.broker.memory.vector import cue_vector, similarity
 
 
@@ -210,11 +210,17 @@ class RecallMachine:
         # Choosing among entry points is itself a step, and it is charged
         # as one: this is the "which chapter of my life was that in?"
         # moment, and pretending it is free would understate every walk.
+        # Same rule as rank_children: relevance leads, accessibility
+        # adjusts. Choosing which chapter to start in must not be decided by
+        # which chapter was opened last.
         scored = sorted(
             (
-                (addr, similarity(self._cue, self.tree.get(addr).vec)
-                 * self.tree.retrieval_strength(addr, tick=tick))
-                for addr in entries
+                (
+                    addr,
+                    similarity(self._cue, self.tree.get(addr).vec)
+                    + STRENGTH_WEIGHT * self.tree.retrieval_strength(addr, tick=tick),
+                )
+                for addr in self._counted(entries)
             ),
             key=lambda pair: (-pair[1], pair[0]),
         )
@@ -228,6 +234,16 @@ class RecallMachine:
         )
         self.state = RecallState.NAVIGATE
         return self.state
+
+    def _counted(self, addrs):
+        """Charge the tree's comparison counter for choosing an entry point.
+
+        Picking where to start is a scan over entry points, and leaving it
+        uncounted would understate the cost of every walk.
+        """
+        for addr in addrs:
+            self.tree.comparisons += 1
+            yield addr
 
     # ------------------------------------------------------------ NAVIGATE
 
