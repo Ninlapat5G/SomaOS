@@ -1,0 +1,712 @@
+<title>กายวิภาคความจำ SomaOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:    #E9ECEF;
+    --surface:   #FFFFFF;
+    --surface-2: #F2F4F6;
+    --line:      #C9D1D8;
+    --line-soft: #DEE4E9;
+    --ink:       #172026;
+    --ink-2:     #4A5A65;
+    --ink-3:     #6E7F8A;
+    --holds:     #1F6F66;
+    --holds-bg:  #DDEDEA;
+    --fades:     #9A5A16;
+    --fades-bg:  #F4E7D6;
+    --flag:      #8C2F39;
+    --flag-bg:   #F5E1E3;
+    --sans: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #10151A; --surface:   #171E24; --surface-2: #1D262D;
+      --line:      #2E3B45; --line-soft: #232E36;
+      --ink:       #DCE5EB; --ink-2:     #A2B2BE; --ink-3:     #7A8B98;
+      --holds:     #56B8AA; --holds-bg:  #17332F;
+      --fades:     #D79B4E; --fades-bg:  #2B2116;
+      --flag:      #E07C87; --flag-bg:   #331A1E;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:    #10151A; --surface:   #171E24; --surface-2: #1D262D;
+    --line:      #2E3B45; --line-soft: #232E36;
+    --ink:       #DCE5EB; --ink-2:     #A2B2BE; --ink-3:     #7A8B98;
+    --holds:     #56B8AA; --holds-bg:  #17332F;
+    --fades:     #D79B4E; --fades-bg:  #2B2116;
+    --flag:      #E07C87; --flag-bg:   #331A1E;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 66rem; margin: 0 auto; padding: 0 1.4rem 6rem; }
+
+  header { padding: 3.5rem 0 2rem; border-bottom: 1px solid var(--line); margin-bottom: 2.5rem; }
+  .kicker { font-family: var(--mono); font-size: .74rem; letter-spacing: .15em;
+            text-transform: uppercase; color: var(--ink-3); margin: 0 0 1rem; }
+  h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.14; font-weight: 600;
+       letter-spacing: -.02em; margin: 0 0 .8rem; text-wrap: balance; }
+  .dek { font-size: 1.08rem; color: var(--ink-2); max-width: 42rem; margin: 0; }
+
+  section { margin: 0 0 3.5rem; }
+  h2 { font-size: 1.42rem; font-weight: 600; margin: 0 0 .3rem; padding-top: 1.1rem;
+       border-top: 2px solid var(--ink); letter-spacing: -.01em; }
+  h2 .n { display: block; font-family: var(--mono); font-size: .78rem; font-weight: 500;
+          color: var(--ink-3); letter-spacing: .08em; margin-bottom: .3rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 2rem 0 .4rem; }
+  p { margin: 0 0 .9rem; max-width: 46rem; }
+  .lede { color: var(--ink-2); margin-bottom: 1.6rem; max-width: 46rem; }
+
+  figure { margin: 1.6rem 0; background: var(--surface); border: 1px solid var(--line-soft);
+           border-radius: 3px; padding: 1.5rem 1.3rem 1.1rem; overflow-x: auto; }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { margin-top: 1.1rem; padding-top: .85rem; border-top: 1px solid var(--line-soft);
+               font-size: .88rem; color: var(--ink-2); line-height: 1.65; }
+
+  .lbl  { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
+  .lbl2 { font-family: var(--mono); font-size: 10px; fill: var(--ink-3); }
+  .ttl  { font-family: var(--mono); font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+  .th   { font-family: var(--sans); font-size: 12px; font-weight: 600; fill: var(--ink); }
+
+  .scroll { overflow-x: auto; margin: 1.4rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem;
+          background: var(--surface); min-width: 32rem; }
+  th, td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase;
+             color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2);
+         padding: .1em .35em; border-radius: 2px; }
+  td code { background: none; padding: 0; }
+
+  .pill { display: inline-block; font-family: var(--mono); font-size: .68rem;
+          padding: .1em .5em; border-radius: 2px; white-space: nowrap; letter-spacing: .03em; }
+  .pill.hold { background: var(--holds-bg); color: var(--holds); }
+  .pill.fade { background: var(--fades-bg); color: var(--fades); }
+  .pill.no   { background: var(--flag-bg);  color: var(--flag); }
+
+  .note { background: var(--surface); border: 1px solid var(--line-soft);
+          border-left: 3px solid var(--holds); border-radius: 0 3px 3px 0;
+          padding: 1rem 1.25rem; margin: 1.5rem 0; max-width: 48rem; }
+  .note p:last-child { margin-bottom: 0; }
+  .note .tag { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+               text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: .35rem; }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.4rem; margin-top: 3rem;
+           font-family: var(--mono); font-size: .78rem; color: var(--ink-3); line-height: 1.8; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="kicker">SomaOS · โครงสร้างหน่วยความจำ · ดึงจากโค้ดที่รันจริง</p>
+  <h1>กายวิภาคความจำ</h1>
+  <p class="dek">
+    ทุกชื่อ ทุกตัวเลข และทุกสถานะในหน้านี้อ่านออกมาจากโค้ดที่ผ่านเทสต์ 552 ข้อ
+    ไม่ใช่ภาพร่างของสิ่งที่ตั้งใจจะทำ
+  </p>
+</header>
+
+<section>
+  <h2><span class="n">01 · ภาพรวม</span>ห้องความจำสี่ห้อง กับทางเข้าสี่ทาง</h2>
+  <p class="lede">
+    หัวใจของดีไซน์คือ <strong>ความจำแต่ละชนิดเข้าถึง context คนละทาง และมีกฎคนละแบบ</strong>
+    ไม่ใช่กองเดียวที่ค้นด้วยวิธีเดียว
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 430" role="img" aria-label="ภาพรวม: context window ทางซ้าย เชื่อมกับความจำภายนอกทางขวาซึ่งแบ่งเป็นสี่ภูมิภาค CORE เข้า context ทุกครั้ง TRIGGER เป็น interrupt SKILL เรียกด้วย cue ARCHIVE ต้องเดินต้นไม้">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--holds)"/></marker>
+        <marker id="arf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--fades)"/></marker>
+      </defs>
+
+      <!-- CONTEXT -->
+      <rect x="16" y="40" width="212" height="356" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="5 4"/>
+      <text class="ttl" x="122" y="28" text-anchor="middle">CONTEXT WINDOW</text>
+      <text class="lbl2" x="122" y="58" text-anchor="middle">= RAM · แพง · คงที่</text>
+
+      <rect x="34" y="74" width="176" height="62" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="th" x="46" y="96" fill="var(--holds)">ตัวตน (CORE)</text>
+      <text class="lbl2" x="46" y="112">อยู่ตรงนี้ทุก tick</text>
+      <text class="lbl2" x="46" y="127">หัว prompt · prefix cache ไม่แตก</text>
+
+      <rect x="34" y="152" width="176" height="52" rx="3" fill="none" stroke="var(--holds)" stroke-opacity=".55"/>
+      <text class="th" x="46" y="173" fill="var(--holds)">ทักษะที่ถูกปลุก</text>
+      <text class="lbl2" x="46" y="190">สถานการณ์ตรง → มาเอง</text>
+
+      <rect x="34" y="220" width="176" height="52" rx="3" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="46" y="241">ความทรงจำที่ดึงมา</text>
+      <text class="lbl2" x="46" y="258">จ่าย token ตรงนี้ที่เดียว</text>
+
+      <rect x="34" y="288" width="176" height="52" rx="3" fill="var(--fades-bg)" stroke="var(--fades)" stroke-opacity=".7"/>
+      <text class="th" x="46" y="309" fill="var(--fades)">ความตั้งใจที่ยิงแล้ว</text>
+      <text class="lbl2" x="46" y="326">interrupt · ไม่ได้ค้นมา</text>
+
+      <text class="lbl2" x="122" y="366" text-anchor="middle">context_budget_tokens</text>
+      <text class="lbl2" x="122" y="382" text-anchor="middle">= เพดานของทั้งกล่องนี้</text>
+
+      <!-- EXTERNAL -->
+      <rect x="330" y="40" width="554" height="356" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+      <text class="ttl" x="607" y="28" text-anchor="middle">EXTERNAL MEMORY</text>
+      <text class="lbl2" x="607" y="58" text-anchor="middle">= Disk · store_budget_bytes คือ “ขนาดสมอง”</text>
+
+      <!-- CORE -->
+      <rect x="348" y="74" width="248" height="62" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="th" x="360" y="95" fill="var(--holds)">CORE — ตัวตน</text>
+      <text class="lbl2" x="360" y="111">trait → adaptation → narrative</text>
+      <text class="lbl2" x="360" y="126">ให้มาตอนสร้าง + ตกผลึกเองได้</text>
+      <text class="lbl" x="584" y="95" text-anchor="end" fill="var(--holds)">ห้ามจาง</text>
+
+      <!-- TRIGGER -->
+      <rect x="348" y="150" width="248" height="62" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="th" x="360" y="171" fill="var(--fades)">TRIGGER — ความตั้งใจ</text>
+      <text class="lbl2" x="360" y="187">time · event · predicate</text>
+      <text class="lbl2" x="360" y="202">ไม่กิน context เลยระหว่างรอ</text>
+      <text class="lbl" x="584" y="171" text-anchor="end" fill="var(--fades)">ห้ามจาง</text>
+
+      <!-- SKILL -->
+      <rect x="348" y="226" width="248" height="62" rx="3" fill="none" stroke="var(--holds)" stroke-opacity=".6"/>
+      <text class="th" x="360" y="247" fill="var(--holds)">SKILL — ทักษะ/นิสัย</text>
+      <text class="lbl2" x="360" y="263">index ด้วย cue ของสถานการณ์</text>
+      <text class="lbl2" x="360" y="278">ไม่ใช่ความคล้ายของหัวข้อ</text>
+      <text class="lbl" x="584" y="247" text-anchor="end">จางถึง D3</text>
+
+      <!-- ARCHIVE -->
+      <rect x="348" y="302" width="248" height="76" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="th" x="360" y="323">ARCHIVE — ประสบการณ์</text>
+      <text class="lbl2" x="360" y="339">ต้นไม้ 5 ชั้น · ที่เดียวที่ต้องเดินหา</text>
+      <text class="lbl2" x="360" y="354">ทุก address resolve ได้ตลอดกาล</text>
+      <text class="lbl" x="584" y="323" text-anchor="end" fill="var(--fades)">จางถึง D4</text>
+
+      <!-- routes -->
+      <line x1="348" y1="105" x2="214" y2="105" stroke="var(--holds)" stroke-width="2" marker-end="url(#arh)"/>
+      <text class="lbl2" x="281" y="98" text-anchor="middle" fill="var(--holds)">อยู่แล้ว · 0 ก้าว</text>
+
+      <line x1="348" y1="255" x2="214" y2="178" stroke="var(--holds)" stroke-width="1.6" stroke-opacity=".8" marker-end="url(#arh)"/>
+      <text class="lbl2" x="285" y="212" text-anchor="middle" fill="var(--holds)">cue ตรง · 0 ก้าว</text>
+
+      <line x1="348" y1="340" x2="214" y2="246" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl2" x="287" y="300" text-anchor="middle">เดินต้นไม้ · จ่ายก้าว</text>
+
+      <line x1="348" y1="188" x2="214" y2="314" stroke="var(--fades)" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arf)"/>
+      <text class="lbl2" x="272" y="255" text-anchor="middle" fill="var(--fades)">ยิงเอง</text>
+
+      <!-- budgets -->
+      <rect x="618" y="74" width="250" height="304" rx="3" fill="var(--surface-2)" stroke="var(--line-soft)"/>
+      <text class="th" x="632" y="96">งบสามก้อน คนละสกุลเงิน</text>
+      <text class="lbl" x="632" y="122">context_budget_tokens</text>
+      <text class="lbl2" x="632" y="138">RAM — ส่งเข้าโมเดลได้เท่าไหร่</text>
+      <text class="lbl" x="632" y="166">store_budget_bytes</text>
+      <text class="lbl2" x="632" y="182">Disk — “ขนาดสมอง” ของ agent</text>
+      <text class="lbl2" x="632" y="197">ใหญ่ = จำละเอียดนาน</text>
+      <text class="lbl" x="632" y="225">recall_ops_budget</text>
+      <text class="lbl2" x="632" y="241">เวลา — “พยายามนึกแค่ไหน”</text>
+      <line x1="632" y1="262" x2="854" y2="262" stroke="currentColor" stroke-opacity=".2"/>
+      <text class="lbl2" x="632" y="284">CORE + TRIGGER กันโควตาไว้ก่อน</text>
+      <text class="lbl2" x="632" y="300">ที่เหลือค่อยเป็นของ SKILL/ARCHIVE</text>
+      <text class="lbl2" x="632" y="322">ถ้าตัวตนอย่างเดียวไม่พอ →</text>
+      <text class="lbl2" x="632" y="338" fill="var(--flag)">ระบบ error ไม่ยอมกัดกินตัวตนให้พอดี</text>
+      <text class="lbl2" x="632" y="364">dim = 256 มิติ ต่อความทรงจำหนึ่งชิ้น</text>
+    </svg>
+    <figcaption>
+      <strong>ทางเข้าสี่ทางไม่เท่ากันโดยตั้งใจ</strong> — ตัวตนอยู่ในนั้นอยู่แล้ว ทักษะถูกปลุกด้วยสถานการณ์
+      ความตั้งใจยิงตัวเอง มีแต่ประสบการณ์เท่านั้นที่ต้อง “ค้น” จริง ๆ
+      หลักฐานคือผู้ป่วย H.M. ที่สร้างความทรงจำใหม่ไม่ได้เลย แต่ยังฝึกทักษะเก่งขึ้นทุกวัน —
+      แปลว่าการนึกทักษะไม่ได้เดินผ่านการค้นความทรงจำ
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">02 · หน่วยเก็บ</span>ความทรงจำหนึ่งชิ้นหน้าตาเป็นยังไง</h2>
+  <p class="lede">
+    13 ฟิลด์ แบ่งเป็น 5 กลุ่มที่มีหน้าที่ต่างกันชัดเจน — และการแยกกลุ่มพวกนี้คือสิ่งที่ทำให้ระบบทำงานถูก
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 400" role="img" aria-label="กายวิภาคของ MemoryNode หนึ่งชิ้น แบ่งเป็นห้ากลุ่ม: ที่อยู่ ความรู้ที่เป็นเวกเตอร์ โครงสร้างต้นไม้ สถิติการใช้ และเงาข้อความสำหรับมนุษย์">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor" fill-opacity=".6"/></marker></defs>
+
+      <rect x="250" y="20" width="330" height="362" rx="3" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text class="ttl" x="266" y="42">MemoryNode</text>
+
+      <!-- 1 identity -->
+      <rect x="264" y="56" width="302" height="42" rx="2" fill="var(--surface)" stroke="var(--line-soft)"/>
+      <text class="lbl" x="276" y="74" fill="var(--ink)">addr</text>
+      <text class="lbl2" x="276" y="90">sha256 ของเนื้อหา · เนื้อหาเดียวกัน = ที่อยู่เดียวกัน</text>
+
+      <!-- 2 knowledge -->
+      <rect x="264" y="106" width="302" height="82" rx="2" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="lbl" x="276" y="124" fill="var(--holds)">vec &lt;256 มิติ&gt;</text>
+      <text class="lbl2" x="276" y="140">★ ความรู้จริงของระบบ — engine ตัดสินใจจากตรงนี้เท่านั้น</text>
+      <text class="lbl" x="276" y="160" fill="var(--holds)">grade · fidelity</text>
+      <text class="lbl2" x="276" y="176">อยู่ขั้นไหนของบันไดการจาง · เหลือเท่าไหร่</text>
+
+      <!-- 3 tree -->
+      <rect x="264" y="196" width="302" height="62" rx="2" fill="var(--surface)" stroke="var(--line-soft)"/>
+      <text class="lbl" x="276" y="214" fill="var(--ink)">region · level · parent · children</text>
+      <text class="lbl2" x="276" y="230">อยู่ห้องไหน ชั้นไหน ใต้ใคร</text>
+      <text class="lbl" x="276" y="248" fill="var(--ink)">n_merged · span · keys</text>
+
+      <!-- 4 stats -->
+      <rect x="264" y="266" width="302" height="42" rx="2" fill="var(--fades-bg)" stroke="var(--fades)" stroke-opacity=".7"/>
+      <text class="lbl" x="276" y="284" fill="var(--fades)">NodeStat — เก็บแยกจาก node</text>
+      <text class="lbl2" x="276" y="300">use_count · last_used · occurrences</text>
+
+      <!-- 5 shadow -->
+      <rect x="264" y="316" width="302" height="52" rx="2" fill="var(--surface)" stroke="var(--line-soft)" stroke-dasharray="4 3"/>
+      <text class="lbl" x="276" y="334" fill="var(--ink-3)">text_ref · raw_refs</text>
+      <text class="lbl2" x="276" y="350">☆ เงาสำหรับมนุษย์ — engine ห้ามอ่านเพื่อตัดสินใจ</text>
+
+      <!-- annotations left -->
+      <line x1="242" y1="77" x2="260" y2="77" stroke="currentColor" stroke-opacity=".5" marker-end="url(#a2)"/>
+      <text class="lbl" x="234" y="72" text-anchor="end">ที่อยู่</text>
+      <text class="lbl2" x="234" y="88" text-anchor="end">dedupe ฟรี · ตรวจ integrity ได้</text>
+
+      <line x1="242" y1="145" x2="260" y2="145" stroke="var(--holds)" marker-end="url(#a2)"/>
+      <text class="lbl" x="234" y="140" text-anchor="end" fill="var(--holds)">ความรู้</text>
+      <text class="lbl2" x="234" y="156" text-anchor="end">เป็นเวกเตอร์ ไม่ใช่ข้อความ</text>
+
+      <line x1="242" y1="225" x2="260" y2="225" stroke="currentColor" stroke-opacity=".5" marker-end="url(#a2)"/>
+      <text class="lbl" x="234" y="220" text-anchor="end">ตำแหน่ง</text>
+
+      <!-- annotations right -->
+      <line x1="588" y1="287" x2="570" y2="287" stroke="var(--fades)" marker-end="url(#a2)"/>
+      <text class="lbl" x="596" y="282" fill="var(--fades)">แยกออกมาเพราะ</text>
+      <text class="lbl2" x="596" y="298">การอ่านความทรงจำ</text>
+      <text class="lbl2" x="596" y="313">ต้องไม่เขียนทับมัน</text>
+
+      <line x1="588" y1="340" x2="570" y2="340" stroke="currentColor" stroke-opacity=".4" marker-end="url(#a2)"/>
+      <text class="lbl2" x="596" y="336">ลบข้อความทั้งคลังทิ้ง</text>
+      <text class="lbl2" x="596" y="351">การเดินต้องเหมือนเดิม</text>
+      <text class="lbl2" x="596" y="366">ทุกบิต — มีเทสต์คุม</text>
+
+      <line x1="588" y1="140" x2="570" y2="140" stroke="var(--holds)" marker-end="url(#a2)"/>
+      <text class="lbl2" x="596" y="122">บนข้อความ “การเจือจาง”</text>
+      <text class="lbl2" x="596" y="137">ทำไม่ได้จริง — มันกลายเป็น</text>
+      <text class="lbl2" x="596" y="152">การเรียก LLM เขียนใหม่</text>
+      <text class="lbl2" x="596" y="167">ซึ่งแพงและทำลายของเดิม</text>
+
+      <line x1="588" y1="77" x2="570" y2="77" stroke="currentColor" stroke-opacity=".4" marker-end="url(#a2)"/>
+      <text class="lbl2" x="596" y="73">node เป็น frozen —</text>
+      <text class="lbl2" x="596" y="88">เนื้อหากำหนดที่อยู่</text>
+    </svg>
+    <figcaption>
+      <strong>สองการแยกที่สำคัญที่สุด</strong> — (1) <code>vec</code> คือความรู้ ส่วน <code>text_ref</code> เป็นเงา
+      ทำให้ระบบข้ามภาษาและข้ามสื่อได้ และการยุบรวมกลายเป็นการเฉลี่ยที่ทำซ้ำได้
+      (2) <code>NodeStat</code> อยู่นอก node เพราะ node เป็น frozen และเนื้อหากำหนดที่อยู่ —
+      ถ้าสถิติอยู่ใน node การอ่านความทรงจำหนึ่งครั้งจะเปลี่ยนที่อยู่ของมัน
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">03 · ต้นไม้</span>ห้าชั้นของประสบการณ์ และจุดที่การนึกเริ่ม</h2>
+  <p class="lede">
+    ชั้นทั้งห้ามาจาก Conway &amp; Pleydell-Pearce (2000) ที่พบว่าความจำอัตชีวประวัติของคน
+    จัดเก็บเป็นลำดับชั้น <strong>และการนึกเริ่มที่ชั้นกลาง ไม่ใช่ที่ราก</strong>
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 340" role="img" aria-label="ต้นไม้ประสบการณ์ห้าชั้น จากรากคือเรื่องเล่าตัวตน ลงมาถึงช่วงชีวิต เหตุการณ์รวม เหตุการณ์เฉพาะ และรายละเอียดพื้นผิว โดยการเดินเริ่มที่ชั้นเหตุการณ์รวม">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--holds)"/></marker></defs>
+
+      <g stroke="currentColor" stroke-opacity=".1">
+        <line x1="180" y1="46" x2="884" y2="46"/><line x1="180" y1="104" x2="884" y2="104"/>
+        <line x1="180" y1="162" x2="884" y2="162"/><line x1="180" y1="220" x2="884" y2="220"/>
+        <line x1="180" y1="278" x2="884" y2="278"/>
+      </g>
+
+      <text class="lbl" x="168" y="42" text-anchor="end" fill="var(--holds)">L4 · NARRATIVE</text>
+      <text class="lbl2" x="168" y="58" text-anchor="end">เรื่องเล่าตัวตน = CORE</text>
+      <text class="lbl" x="168" y="100" text-anchor="end">L3 · LIFETIME_PERIOD</text>
+      <text class="lbl2" x="168" y="116" text-anchor="end">ช่วงชีวิต · เดือน–ปี</text>
+      <text class="lbl" x="168" y="158" text-anchor="end" fill="var(--fades)">L2 · GENERAL_EVENT ★</text>
+      <text class="lbl2" x="168" y="174" text-anchor="end" fill="var(--fades)">เหตุการณ์รวม · วัน–สัปดาห์</text>
+      <text class="lbl" x="168" y="216" text-anchor="end">L1 · SPECIFIC_EVENT</text>
+      <text class="lbl2" x="168" y="232" text-anchor="end">เหตุการณ์เฉพาะ · ชั่วโมง</text>
+      <text class="lbl" x="168" y="274" text-anchor="end">L0 · VERBATIM</text>
+      <text class="lbl2" x="168" y="290" text-anchor="end">รายละเอียดพื้นผิว · นาที</text>
+
+      <!-- tree -->
+      <circle cx="530" cy="42" r="9" fill="var(--holds-bg)" stroke="var(--holds)" stroke-width="1.6"/>
+      <text class="lbl2" x="548" y="46" fill="var(--holds)">“ฉันเป็นคนแบบไหน”</text>
+
+      <line x1="530" y1="51" x2="400" y2="94" stroke="currentColor" stroke-opacity=".35"/>
+      <line x1="530" y1="51" x2="660" y2="94" stroke="currentColor" stroke-opacity=".35"/>
+      <circle cx="400" cy="100" r="7" fill="none" stroke="currentColor" stroke-opacity=".55"/>
+      <circle cx="660" cy="100" r="7" fill="none" stroke="currentColor" stroke-opacity=".55"/>
+      <text class="lbl2" x="678" y="104">“ตอนทำโปรเจกต์นี้”</text>
+
+      <line x1="400" y1="107" x2="330" y2="152" stroke="currentColor" stroke-opacity=".35"/>
+      <line x1="400" y1="107" x2="470" y2="152" stroke="currentColor" stroke-opacity=".35"/>
+      <line x1="660" y1="107" x2="610" y2="152" stroke="currentColor" stroke-opacity=".35"/>
+      <line x1="660" y1="107" x2="720" y2="152" stroke="currentColor" stroke-opacity=".35"/>
+      <g fill="var(--fades)">
+        <rect x="320" y="152" width="20" height="14" rx="2"/><rect x="460" y="152" width="20" height="14" rx="2"/>
+        <rect x="600" y="152" width="20" height="14" rx="2"/><rect x="710" y="152" width="20" height="14" rx="2"/>
+      </g>
+      <text class="lbl2" x="748" y="163" fill="var(--fades)">“ช่วงที่แก้เรื่องบันไดการจาง”</text>
+
+      <line x1="330" y1="166" x2="300" y2="212" stroke="currentColor" stroke-opacity=".28"/>
+      <line x1="330" y1="166" x2="362" y2="212" stroke="currentColor" stroke-opacity=".28"/>
+      <line x1="470" y1="166" x2="452" y2="212" stroke="currentColor" stroke-opacity=".28"/>
+      <line x1="610" y1="166" x2="596" y2="212" stroke="currentColor" stroke-opacity=".28"/>
+      <line x1="720" y1="166" x2="712" y2="212" stroke="currentColor" stroke-opacity=".28"/>
+      <g fill="currentColor" fill-opacity=".45">
+        <circle cx="300" cy="217" r="5"/><circle cx="362" cy="217" r="5"/><circle cx="452" cy="217" r="5"/>
+        <circle cx="596" cy="217" r="5"/><circle cx="712" cy="217" r="5"/>
+      </g>
+      <text class="lbl2" x="740" y="221">“ตอนที่ผลวัด binary ออกมา”</text>
+
+      <line x1="300" y1="222" x2="292" y2="270" stroke="currentColor" stroke-opacity=".2"/>
+      <line x1="362" y1="222" x2="370" y2="270" stroke="currentColor" stroke-opacity=".2"/>
+      <line x1="452" y1="222" x2="460" y2="270" stroke="currentColor" stroke-opacity=".2"/>
+      <line x1="596" y1="222" x2="604" y2="270" stroke="currentColor" stroke-opacity=".2"/>
+      <g fill="currentColor" fill-opacity=".3">
+        <circle cx="292" cy="274" r="3.5"/><circle cx="370" cy="274" r="3.5"/>
+        <circle cx="460" cy="274" r="3.5"/><circle cx="604" cy="274" r="3.5"/>
+      </g>
+      <text class="lbl2" x="632" y="278">ตัวเลข 0.214 ที่เห็นบนจอ</text>
+
+      <!-- entry -->
+      <line x1="240" y1="140" x2="312" y2="154" stroke="var(--holds)" stroke-width="2" marker-end="url(#a3)"/>
+      <text class="lbl" x="236" y="130" text-anchor="end" fill="var(--holds)">การนึกเข้าตรงนี้</text>
+      <text class="lbl2" x="236" y="146" text-anchor="end" fill="var(--holds)">ไม่ใช่ที่ราก</text>
+
+      <line x1="180" y1="318" x2="884" y2="318" stroke="currentColor" stroke-opacity=".2"/>
+      <text class="lbl2" x="180" y="334">คนนึก “ช่วงนั้นน่ะ ตอนที่...” ออกก่อน แล้วรายละเอียดค่อยตามมา — เริ่มที่ชั้นกลางจึงทั้งตรงหลักฐานและถูกกว่า (ชั้นบนแยกแยะอะไรไม่ค่อยได้)</text>
+    </svg>
+    <figcaption>
+      🔗 <strong>รากของต้นไม้คือ CORE เอง</strong> — Conway บอกว่า life story schema เป็นตัว index ให้ช่วงชีวิต
+      ส่วน McAdams บอกว่า narrative identity คือชั้นบนสุดของบุคลิกภาพ สองอันนี้คืออันเดียวกัน
+      จึงอธิบายกลไกจริงว่าทำไมตัวตนถึงมีผลต่อสิ่งที่นึกออก: <strong>ตัวตนคือจุดตั้งต้นของการเดินทุกครั้ง</strong>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">04 · การจาง</span>บันไดห้าขั้น เรียงตาม “อะไรถูกทำลาย”</h2>
+  <p class="lede">
+    ไม่ได้เรียงตามว่าประหยัดกี่ไบต์ แต่เรียงตามว่า <strong>ขั้นนั้นฆ่าคำถามแบบไหน</strong>
+    ตัวเลขทุกตัวมาจากการวัดจริง ไม่ใช่การเดา
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 320" role="img" aria-label="บันไดการจางห้าขั้น จาก float32 ที่ตอบได้ทุกอย่าง ลงไปถึงตัวนับที่ตอบได้แค่ว่าเคยมีเรื่องแบบนี้ โดยแต่ละขั้นเล็กลงและตอบได้น้อยลง">
+      <g>
+        <rect x="40"  y="40"  width="150" height="46" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+        <rect x="200" y="86"  width="150" height="46" rx="3" fill="var(--holds-bg)" stroke="var(--holds)" stroke-opacity=".8"/>
+        <rect x="360" y="132" width="150" height="46" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+        <rect x="520" y="178" width="150" height="46" rx="3" fill="var(--fades-bg)" stroke="var(--fades)" stroke-opacity=".7"/>
+        <rect x="680" y="224" width="150" height="46" rx="3" fill="none" stroke="var(--fades)" stroke-opacity=".55" stroke-dasharray="4 3"/>
+      </g>
+      <g stroke="currentColor" stroke-opacity=".25">
+        <line x1="190" y1="63" x2="200" y2="86"/><line x1="350" y1="109" x2="360" y2="132"/>
+        <line x1="510" y1="155" x2="520" y2="178"/><line x1="670" y1="201" x2="680" y2="224"/>
+      </g>
+
+      <text class="ttl" x="52" y="60" fill="var(--holds)">D0 float32</text>
+      <text class="lbl2" x="52" y="76">1,024 bytes</text>
+      <text class="ttl" x="212" y="106" fill="var(--holds)">D1 int8</text>
+      <text class="lbl2" x="212" y="122">256 bytes · 4×</text>
+      <text class="ttl" x="372" y="152" fill="var(--fades)">D2 binary</text>
+      <text class="lbl2" x="372" y="168">32 bytes · 32×</text>
+      <text class="ttl" x="532" y="198" fill="var(--fades)">D3 ยุบเข้าแม่</text>
+      <text class="lbl2" x="532" y="214">0 bytes</text>
+      <text class="ttl" x="692" y="244" fill="var(--fades)">D4 เหลือตัวนับ</text>
+      <text class="lbl2" x="692" y="260">0 bytes · พื้น</text>
+
+      <text class="lbl" x="52" y="106" fill="var(--holds)">✓ ชิ้นไหน  ✓ แนวไหน</text>
+      <text class="lbl" x="212" y="152" fill="var(--holds)">✓ ชิ้นไหน 0.98–1.00</text>
+      <text class="lbl" x="372" y="198" fill="var(--fades)">✗ ชิ้นไหน 0.21–0.74</text>
+      <text class="lbl" x="372" y="214" fill="var(--holds)">✓ แนวไหน 0.79–1.00</text>
+      <text class="lbl" x="532" y="244" fill="var(--fades)">✗ ตัวตนหายเข้ากลุ่ม</text>
+      <text class="lbl" x="692" y="290" fill="var(--fades)">“เคยมีเรื่องแบบนี้ n ครั้ง”</text>
+
+      <line x1="30" y1="286" x2="860" y2="286" stroke="var(--fades)" stroke-width="2.5"/>
+      <text class="lbl" x="30" y="306" fill="var(--fades)">พื้น — ไม่มีขั้นไหนที่แปลว่า “หายไป” · ทุก address ยัง resolve ได้ตลอดกาล</text>
+    </svg>
+    <figcaption>
+      <strong>ทำไมถึงเลือก binary เป็นขั้นที่ความทรงจำหยุดเป็น “ชิ้นนั้น” แล้วกลายเป็น “เรื่องแนวนั้น”</strong> —
+      เพราะสิ่งที่มันทำลายคือสิ่งที่ <em>ควร</em> ตายก่อนพอดี (รายละเอียด) และสิ่งที่มันรักษาคือสิ่งที่ <em>ควร</em> อยู่รอด (แก่น)
+      ตรงกับ fuzzy-trace theory ที่บอกว่า verbatim สลายเร็ว gist อยู่นานกว่ามาก · ฐานทฤษฎีคือ SimHash:
+      <code>P[บิตตรงกัน] = 1 − θ/π</code> ทำให้บิตเป็นตัวประมาณมุมแบบไม่เอนเอียง
+      <strong>และเป็นเหตุผลที่ไม่มีขั้น “ลดมิติ”</strong> — บิตคือขนาดตัวอย่างของการประมาณ ลดมิติ = พังเร็วกว่าที่ประหยัด
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">05 · สองแกน</span>“นึกไม่ออก” กับ “จำรายละเอียดไม่ได้” เป็นคนละเรื่อง</h2>
+
+  <figure>
+    <svg viewBox="0 0 780 300" role="img" aria-label="ระนาบสองแกน: แกนตั้งคือความคมชัดที่ลดลงเมื่อคลังเต็ม แกนนอนคือความลึกที่เพิ่มขึ้นเมื่อไม่ได้ใช้ ความทรงจำเคลื่อนที่ได้ทุกทิศยกเว้นขึ้นบน">
+      <defs>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="a4f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--fades)"/></marker>
+        <marker id="a4h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--holds)"/></marker>
+      </defs>
+      <rect x="110" y="34" width="500" height="196" fill="none" stroke="currentColor" stroke-opacity=".14"/>
+      <line x1="110" y1="34" x2="110" y2="230" stroke="currentColor" stroke-opacity=".45"/>
+      <line x1="110" y1="230" x2="610" y2="230" stroke="currentColor" stroke-opacity=".45"/>
+
+      <text class="ttl" x="110" y="24" fill="var(--fades)">ความคมชัด · fidelity</text>
+      <text class="lbl2" x="102" y="52" text-anchor="end">คม</text>
+      <text class="lbl2" x="102" y="224" text-anchor="end">หยาบ</text>
+      <text class="lbl" x="110" y="252">ความลึก · retrieval strength →</text>
+      <text class="lbl2" x="110" y="268">ตื้น = นึกออกทันที · ลึก = ต้องเดินหลายก้าว</text>
+
+      <circle cx="165" cy="66" r="7" fill="var(--holds)"/>
+      <text class="lbl" x="180" y="63">เพิ่งเกิด · ใช้บ่อย</text>
+      <text class="lbl2" x="180" y="78">D0 ตอบได้ทุกอย่าง</text>
+
+      <circle cx="520" cy="82" r="6" fill="var(--holds)" fill-opacity=".55"/>
+      <text class="lbl" x="512" y="104" text-anchor="end">คมแต่ลึก</text>
+      <text class="lbl2" x="512" y="119" text-anchor="end">“เรื่องสะเทือนใจที่ไม่ได้คิดถึงมานาน”</text>
+
+      <circle cx="172" cy="196" r="6" fill="var(--fades)"/>
+      <text class="lbl" x="188" y="193">ตื้นแต่หยาบ</text>
+      <text class="lbl2" x="188" y="208">“นึกถึงบ่อย แต่นานมาก”</text>
+
+      <circle cx="546" cy="206" r="6" fill="var(--fades)" fill-opacity=".6"/>
+      <text class="lbl" x="538" y="200" text-anchor="end">ลึกและหยาบ</text>
+
+      <line x1="165" y1="80" x2="165" y2="180" stroke="var(--fades)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a4f)"/>
+      <text class="lbl2" x="158" y="140" text-anchor="end" fill="var(--fades)">คลังเต็ม</text>
+
+      <line x1="186" y1="66" x2="498" y2="80" stroke="currentColor" stroke-opacity=".5" stroke-width="1.5" marker-end="url(#a4)"/>
+      <text class="lbl2" x="340" y="60" text-anchor="middle">ไม่ได้ใช้</text>
+
+      <line x1="498" y1="92" x2="196" y2="74" stroke="var(--holds)" stroke-width="1.5" marker-end="url(#a4h)"/>
+      <text class="lbl2" x="350" y="92" text-anchor="middle" fill="var(--holds)">นึกถึงอีกครั้ง — ตื้นขึ้น แต่ไม่คมขึ้น</text>
+
+      <text class="lbl2" x="640" y="80">ควบคุมด้วย:</text>
+      <text class="lbl" x="640" y="100" fill="var(--fades)">store_budget_bytes</text>
+      <text class="lbl" x="640" y="128">use_count · decay 0.999</text>
+      <text class="lbl2" x="640" y="150">การนึกซ้ำยัง</text>
+      <text class="lbl2" x="640" y="165">ต้านการจางด้วย</text>
+      <text class="lbl2" x="640" y="188">(Bjork: retrieval</text>
+      <text class="lbl2" x="640" y="203">practice ยก storage</text>
+      <text class="lbl2" x="640" y="218">strength ด้วย)</text>
+    </svg>
+    <figcaption>
+      ตรงกับ <strong>Bjork &amp; Bjork (1992)</strong> ที่แยก retrieval strength (ตกเมื่อไม่ใช้)
+      ออกจาก storage strength (แทบไม่เสื่อม) และบอกว่า “การลืม = เข้าถึงไม่ได้ ไม่ใช่ถูกลบ”
+      — ความทรงจำเคลื่อนที่ได้ทุกทิศในระนาบนี้ <strong>ยกเว้นขึ้นบน</strong>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">06 · เครื่องจักรสถานะ</span>สามวงจรที่ทำให้ทุกอย่างเดินได้</h2>
+  <p class="lede">
+    ทุกอย่างเป็น state machine เพราะ <strong>นับก้าวได้ · ตัดได้ · อธิบายได้ · และปล่อยให้ agent เลือกได้อย่างปลอดภัย</strong>
+    (transition มีจำกัดและถูกตรวจทุกอัน)
+  </p>
+
+  <h3>การนึก — <code>RecallMachine</code></h3>
+  <figure>
+    <svg viewBox="0 0 880 210" role="img" aria-label="เครื่องจักรสถานะของการนึก หกสถานะ IDLE CUE RESIDENT NAVIGATE MATERIALIZE SETTLE โดย NAVIGATE เป็นที่เดียวที่จ่ายก้าวและ MATERIALIZE เป็นที่เดียวที่จ่าย token">
+      <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+
+      <rect x="16"  y="72" width="86"  height="40" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="59" y="90" text-anchor="middle">IDLE</text>
+      <text class="lbl2" x="59" y="105" text-anchor="middle">snapshot ได้</text>
+
+      <rect x="132" y="72" width="86"  height="40" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="175" y="90" text-anchor="middle">CUE</text>
+      <text class="lbl2" x="175" y="105" text-anchor="middle">ทางเข้าเดียว</text>
+
+      <rect x="252" y="14" width="118" height="42" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="th" x="311" y="33" text-anchor="middle" fill="var(--holds)">RESIDENT</text>
+      <text class="lbl2" x="311" y="48" text-anchor="middle">ตัวตน + ทักษะ · 0 ก้าว</text>
+
+      <rect x="252" y="72" width="118" height="42" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="th" x="311" y="91" text-anchor="middle" fill="var(--fades)">NAVIGATE</text>
+      <text class="lbl2" x="311" y="106" text-anchor="middle">ที่เดียวที่จ่ายก้าว</text>
+
+      <rect x="410" y="72" width="132" height="42" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="th" x="476" y="91" text-anchor="middle" fill="var(--fades)">MATERIALIZE</text>
+      <text class="lbl2" x="476" y="106" text-anchor="middle">ที่เดียวที่จ่าย token</text>
+
+      <rect x="582" y="72" width="100" height="42" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="632" y="91" text-anchor="middle">SETTLE</text>
+      <text class="lbl2" x="632" y="106" text-anchor="middle">ผลข้างเคียงทั้งหมด</text>
+
+      <line x1="102" y1="92" x2="128" y2="92" stroke="currentColor" marker-end="url(#a5)"/>
+      <line x1="218" y1="86" x2="248" y2="48" stroke="var(--holds)" marker-end="url(#a5)"/>
+      <line x1="218" y1="92" x2="248" y2="92" stroke="currentColor" marker-end="url(#a5)"/>
+      <line x1="370" y1="92" x2="406" y2="92" stroke="currentColor" marker-end="url(#a5)"/>
+      <line x1="370" y1="40" x2="440" y2="68" stroke="var(--holds)" marker-end="url(#a5)"/>
+      <line x1="542" y1="92" x2="578" y2="92" stroke="currentColor" marker-end="url(#a5)"/>
+      <path d="M274,72 C274,40 348,40 348,72" fill="none" stroke="var(--fades)" marker-end="url(#a5)"/>
+
+      <path d="M632,114 C632,158 59,158 59,116" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-dasharray="4 3" marker-end="url(#a5)"/>
+      <text class="lbl2" x="350" y="152" text-anchor="middle">finish() — บันทึกการใช้ · เลื่อนของที่ใช้ให้ตื้นขึ้น · ปิด WalkPath</text>
+
+      <text class="lbl" x="700" y="34">5 moves ที่ agent เลือกได้:</text>
+      <text class="lbl2" x="700" y="52">descend  ลงหาที่ละเอียดขึ้น</text>
+      <text class="lbl2" x="700" y="67">ascend   ขึ้นหาแก่นที่กว้างขึ้น</text>
+      <text class="lbl2" x="700" y="82">lateral  ข้างไปเรื่องที่เชื่อมกัน</text>
+      <text class="lbl2" x="700" y="97">materialize  ดึงเข้า context</text>
+      <text class="lbl2" x="700" y="112">stop     พอแล้ว</text>
+      <text class="lbl2" x="700" y="136">engine เดิน · agent เลือกทิศ</text>
+      <text class="lbl2" x="700" y="151">เกินเพดาน ระบบตัดเอง</text>
+
+      <text class="lbl2" x="16" y="186">ระหว่างเดิน ต้นไม้เป็น read-only ทั้งหมด → ทิ้งการเดินกลางคันได้ และ replay ตรงเป๊ะ</text>
+      <text class="lbl2" x="16" y="202">มีทางสำรองที่เดินเองแบบ best-first โดยไม่แตะ LLM เสมอ — ถอยกลับจากทางที่เลี้ยวผิดได้</text>
+    </svg>
+    <figcaption>
+      <strong>เส้นทางที่เดินคือคำอธิบาย</strong> — <code>explain()</code> จึงได้มาฟรี ไม่ต้องสร้างระบบ trace แยก
+      และการแยก <code>RESIDENT</code> ออกจาก <code>NAVIGATE</code> ทำให้ “มันอยู่แล้ว” กับ “ไปหามา” ไม่ถูกคิดเงินเท่ากัน
+    </figcaption>
+  </figure>
+
+  <h3>ความตั้งใจ — <code>TriggerRegistry</code></h3>
+  <figure>
+    <svg viewBox="0 0 880 200" role="img" aria-label="เครื่องจักรสถานะของความตั้งใจ ARMED ยิงเป็น FIRED แล้วกลับเป็น ARMED ถ้าทำซ้ำได้ หรือไป SUSPENDED ถ้าทำไม่สำเร็จซึ่งยังผุดขึ้นเองได้ หรือ RETIRED ถ้าจบแล้ว">
+      <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <rect x="40"  y="72" width="104" height="42" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="th" x="92" y="98" text-anchor="middle" fill="var(--holds)">ARMED</text>
+      <rect x="248" y="72" width="104" height="42" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".5"/>
+      <text class="th" x="300" y="98" text-anchor="middle">FIRED</text>
+      <rect x="448" y="20" width="128" height="42" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="th" x="512" y="46" text-anchor="middle" fill="var(--fades)">SUSPENDED</text>
+      <rect x="448" y="124" width="128" height="42" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".35"/>
+      <text class="th" x="512" y="150" text-anchor="middle">RETIRED</text>
+
+      <line x1="144" y1="93" x2="244" y2="93" stroke="currentColor" marker-end="url(#a6)"/>
+      <text class="lbl2" x="194" y="84" text-anchor="middle">เงื่อนไขตรง</text>
+      <line x1="352" y1="84" x2="444" y2="48" stroke="var(--fades)" marker-end="url(#a6)"/>
+      <text class="lbl2" x="398" y="58" text-anchor="middle" fill="var(--fades)">ทำไม่สำเร็จ</text>
+      <line x1="352" y1="102" x2="444" y2="140" stroke="currentColor" marker-end="url(#a6)"/>
+      <text class="lbl2" x="400" y="132" text-anchor="middle">ทำเสร็จ · ครั้งเดียวจบ</text>
+      <path d="M300,72 C300,28 160,28 100,66" fill="none" stroke="var(--holds)" marker-end="url(#a6)"/>
+      <text class="lbl2" x="200" y="32" text-anchor="middle" fill="var(--holds)">ทำเสร็จ · ถ้าเป็นแบบซ้ำได้</text>
+      <path d="M512,20 C512,-4 92,-2 92,66" fill="none" stroke="var(--fades)" stroke-dasharray="4 3" marker-end="url(#a6)"/>
+      <text class="lbl" x="512" y="78" text-anchor="middle" fill="var(--fades)">★ ยังผุดขึ้นเองได้</text>
+
+      <text class="lbl" x="640" y="40">สามชนิด ต้นทุนไม่เท่ากัน:</text>
+      <text class="lbl2" x="640" y="62" fill="var(--holds)">event  “เจอ X แล้วทำ Y” · 0 ก้าว</text>
+      <text class="lbl2" x="640" y="80" fill="var(--holds)">time   “ทุกเช้า 8 โมง” · 0 ก้าว</text>
+      <text class="lbl2" x="640" y="98" fill="var(--fades)">predicate “ถ้า mood ตก” · จ่ายก้าวจริง</text>
+      <text class="lbl2" x="640" y="124">การเฝ้าระวังแพงจริงในคนด้วย</text>
+      <text class="lbl2" x="640" y="140">cost model จึงสะท้อนต้นทุนจริง</text>
+
+      <text class="lbl2" x="40" y="190">SUSPENDED ไม่ใช่สถานะที่คิดเอง — งานวิจัยพบว่าความตั้งใจที่ค้างยังผุดขึ้นเอง ส่วนที่จบแล้วไม่ผุด · registry ที่มีแค่ armed/retired จะพลาดอย่างใดอย่างหนึ่งเสมอ</text>
+    </svg>
+  </figure>
+
+  <h3>การนอน — <code>ConsolidationMachine</code></h3>
+  <figure>
+    <svg viewBox="0 0 880 160" role="img" aria-label="วงจร consolidation สี่เฟส REPLAY ABSTRACT REBALANCE ENFORCE โดย ABSTRACT ต้องมาก่อน ENFORCE">
+      <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <rect x="30"  y="36" width="160" height="48" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="110" y="58" text-anchor="middle">REPLAY</text>
+      <text class="lbl2" x="110" y="74" text-anchor="middle">สุ่มสลับ ไม่เรียงตามหัวข้อ</text>
+      <rect x="230" y="36" width="170" height="48" rx="3" fill="var(--holds-bg)" stroke="var(--holds)"/>
+      <text class="th" x="315" y="58" text-anchor="middle" fill="var(--holds)">ABSTRACT</text>
+      <text class="lbl2" x="315" y="74" text-anchor="middle">ซ้ำ → ทักษะ → ตัวตน</text>
+      <rect x="440" y="36" width="180" height="48" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".4"/>
+      <text class="th" x="530" y="58" text-anchor="middle">REBALANCE</text>
+      <text class="lbl2" x="530" y="74" text-anchor="middle">แตก node ที่กว้างเกิน beam</text>
+      <rect x="660" y="36" width="170" height="48" rx="3" fill="var(--fades-bg)" stroke="var(--fades)"/>
+      <text class="th" x="745" y="58" text-anchor="middle" fill="var(--fades)">ENFORCE</text>
+      <text class="lbl2" x="745" y="74" text-anchor="middle">บังคับ store_budget</text>
+
+      <line x1="190" y1="60" x2="226" y2="60" stroke="currentColor" marker-end="url(#a7)"/>
+      <line x1="400" y1="60" x2="436" y2="60" stroke="currentColor" marker-end="url(#a7)"/>
+      <line x1="620" y1="60" x2="656" y2="60" stroke="currentColor" marker-end="url(#a7)"/>
+      <path d="M745,84 C745,120 110,120 110,86" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-dasharray="4 3" marker-end="url(#a7)"/>
+      <text class="lbl2" x="430" y="116" text-anchor="middle">ทุก N tick หรือคลังใกล้เต็ม</text>
+
+      <text class="lbl2" x="30" y="146">ลำดับมีข้อโต้แย้งอยู่ในตัว: ABSTRACT ต้องมาก่อน ENFORCE ไม่งั้น budget ที่ตึงจะไม่ได้แค่ทำให้เสียรายละเอียด แต่ทำให้ agent เรียนรู้ว่าตัวเองเป็นใครไม่ได้</text>
+    </svg>
+    <figcaption>
+      Batch ไม่ใช่เรื่องประหยัดค่า LLM — Complementary Learning Systems (McClelland et al. 1995)
+      อธิบายว่าระบบที่สกัดโครงสร้างต้องเรียนช้าและจากตัวอย่างที่สลับกัน ไม่งั้นเกิด catastrophic interference
+      <strong>ถ้าสรุปทุก observation บุคลิกของ agent จะสั่นทุกบทสนทนา</strong>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="n">07 · ค่าที่ตั้งไว้</span>ปุ่มทุกปุ่มในระบบ</h2>
+  <p class="lede">
+    ทั้งหมดนี้เป็นค่า calibration ที่ยังตั้งมือ <strong>ต้อง tune บน dev seed เท่านั้น</strong>
+    ไม่ใช่ความจริงที่ค้นพบ
+  </p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>ค่า</th><th class="n">ตอนนี้</th><th>ควบคุมอะไร</th><th>ตั้งผิดแล้วเกิดอะไร</th></tr></thead>
+    <tbody>
+      <tr><td><code>dim</code></td><td class="n">256</td><td>ขนาดเวกเตอร์ต่อความทรงจำ</td><td>เล็กไป = การประมาณมุมพัง (บิต = ขนาดตัวอย่าง)</td></tr>
+      <tr><td><code>MAX_CHILDREN</code></td><td class="n">12</td><td>ลูกต่อ node ก่อนถูกแตก = กว้าง vs ลึก</td><td>สูงไป = เดินเข้าผิดกอง (วัดได้ 10–20%) · ต่ำไป = ลึกจนไม่คุ้ม</td></tr>
+      <tr><td><code>beam</code></td><td class="n">4</td><td>ดูลูกกี่ตัวต่อชั้น</td><td>แคบไป = พลาดของที่เย็น</td></tr>
+      <tr><td><code>MIN_REPEATS</code></td><td class="n">4</td><td>ทำซ้ำกี่ครั้งถึงนับเป็นทักษะ</td><td>ต่ำไป = เรื่องบังเอิญกลายเป็นนิสัย</td></tr>
+      <tr><td><code>COHERENCE</code></td><td class="n">0.55</td><td>ต้องเหมือนกันแค่ไหน (หักหัวข้อแม่ออกแล้ว)</td><td>ต่ำไป = กองงานสะเปะสะปะกลายเป็นบุคลิก</td></tr>
+      <tr><td><code>CORE_REPEATS</code></td><td class="n">12</td><td>ซ้ำกี่ครั้งถึงเลื่อนเป็นตัวตน</td><td>ต่ำไป = ตัวตนเปลี่ยนง่ายเกิน</td></tr>
+      <tr><td><code>CORE_SPAN</code></td><td class="n">200</td><td>ต้องเป็นจริงมานานแค่ไหน</td><td>ไม่มีข้อนี้ = ทำ 50 ครั้งในสัปดาห์เดียวกลายเป็นนิสัย ทั้งที่มันคือโปรเจกต์</td></tr>
+      <tr><td><code>COUNTER_FLOOR</code></td><td class="n">0.70</td><td>จางแค่ไหนถึงไม่ให้ไปดึงแก่นของแม่</td><td>สูงไป = ความทรงจำที่เพี้ยนแล้วไปบิดสรุปของกลุ่ม</td></tr>
+      <tr><td><code>STRENGTH_WEIGHT</code></td><td class="n">0.15</td><td>ความสดมีน้ำหนักแค่ไหนเทียบความตรง</td><td>สูงไป = <strong>นึกถึงแต่เรื่องล่าสุดไม่ว่าถามอะไร</strong> (เคยพังตรงนี้: หาเจอ 3%)</td></tr>
+      <tr><td><code>USE_GAIN</code></td><td class="n">0.50</td><td>นึกครั้งหนึ่งทำให้ตื้นขึ้นเท่าไหร่</td><td>—</td></tr>
+      <tr><td><code>DECAY_PER_TICK</code></td><td class="n">0.999</td><td>ไม่ใช้แล้วจมเร็วแค่ไหน</td><td>ครึ่งชีวิตราว 700 tick</td></tr>
+      <tr><td><code>MIN_RETRIEVAL_STRENGTH</code></td><td class="n">0.001</td><td>พื้นของความตื้น</td><td><strong>ต้องมากกว่า 0 เสมอ</strong> — ลึกได้ หายไม่ได้</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">08 · กฎเหล็ก</span>ข้อที่แตกแล้วดีไซน์แตกทั้งหมด</h2>
+  <div class="note">
+    <span class="tag">N-01</span>
+    <p><strong><code>resolve(addr)</code> ห้ามคืนค่าว่าง</strong> สำหรับที่อยู่ที่เคยถูกสร้าง ตลอดอายุของ agent —
+    ทุกครั้งที่ความทรงจำจาง จะเขียน alias ชี้ไปตัวที่แทนมัน คนที่ถือที่อยู่เก่ายังใช้ได้ แค่ได้ของที่หยาบลง</p>
+  </div>
+  <div class="note">
+    <span class="tag">N-02</span>
+    <p><strong>engine ตัดสินใจจากเวกเตอร์เท่านั้น</strong> — ลบข้อความทั้งคลังทิ้ง เส้นทางการเดินต้องเหมือนเดิมทุกบิต มีเทสต์คุม</p>
+  </div>
+  <div class="note">
+    <span class="tag">N-06</span>
+    <p><strong>CORE และ TRIGGER ห้ามจางเด็ดขาด</strong> — ตัวตนไม่เลือนเพราะความจำเต็ม ความตั้งใจไม่หายเพราะที่ไม่พอ
+    ถ้าตัวตนอย่างเดียวไม่พอกับ budget ระบบจะ error ไม่ยอมกัดกินตัวตนให้พอดี</p>
+  </div>
+  <div class="note">
+    <span class="tag">N-08</span>
+    <p><strong>ห้ามมี code path ที่ O(N) ต่อการนึกหนึ่งครั้ง</strong> — วัดด้วยจำนวนการเทียบเวกเตอร์
+    ไม่ใช่จำนวนก้าว เพราะเดิน 2 ก้าวแต่เทียบครบทุกชิ้น = ซ่อนการสแกน ไม่ได้เลี่ยง</p>
+  </div>
+</section>
+
+<footer>
+  ทุกตัวเลขในหน้านี้อ่านจากโค้ดโดยตรง · 552 tests ผ่าน · branch <code>claude/current-phase-progress-t8jqdr</code><br>
+  โครงสร้าง: <code>somaos/broker/memory/</code> · <code>dilution/</code> · <code>regions/</code> · <code>recall/</code> · <code>consolidation/</code><br>
+  สเปกเต็ม: <code>plans/03_MEMORY_ARCHITECTURE.md</code> · พื้นฐานงานวิจัย: <code>plans/04_HUMAN_MEMORY_BASIS.md</code>
+</footer>
+
+</div>
