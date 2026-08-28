@@ -113,6 +113,13 @@ class _Entry:
     stat: NodeStat
     retrieval_strength: float
     last_decay_tick: int
+    #: How many times this exact content has been perceived. Content
+    #: addressing means the second identical experience returns the first
+    #: one's address instead of storing a duplicate, which is right for
+    #: storage and wrong for everything that needs to know something
+    #: happened repeatedly -- doing the same thing every morning would look
+    #: like doing it once. So repetition is counted here.
+    occurrences: int = 1
 
 
 class MemoryTree:
@@ -156,6 +163,20 @@ class MemoryTree:
         silently create a second copy with different statistics.
         """
         if node.addr in self._entries:
+            existing = self._entries[node.addr]
+            existing.occurrences += 1
+            existing.node = replace(
+                existing.node,
+                span=(
+                    min(existing.node.span[0], node.span[0]),
+                    max(existing.node.span[1], node.span[1]),
+                ),
+            )
+            self._apply_decay(existing, tick)
+            # Living through it again makes it more available, the same way
+            # retrieving it would.
+            gap = 1.0 - existing.retrieval_strength
+            existing.retrieval_strength = min(1.0, existing.retrieval_strength + gap * USE_GAIN)
             return node.addr
         if parent is not None:
             parent = self.alias.resolve(parent)
@@ -272,6 +293,15 @@ class MemoryTree:
 
     def stat(self, addr: str) -> NodeStat:
         return self._entries[self.alias.resolve(addr)].stat
+
+    def occurrences(self, addr: str) -> int:
+        """How many times this exact experience has been had.
+
+        Distinct from ``stat.use_count``, which counts recollections. Living
+        through something and remembering it are different events, and a
+        habit is built from the first kind.
+        """
+        return self._entries[self.alias.resolve(addr)].occurrences
 
     # ------------------------------------------------------------ walking
 
@@ -456,6 +486,41 @@ class MemoryTree:
         if merged.addr == parent:
             return parent
         return self.replace_node(parent, merged)
+
+    def reparent(self, addr: str, new_parent: str) -> None:
+        """Move a node under a different parent, keeping its content.
+
+        Used by consolidation to split a node that has grown wider than the
+        beam. Nothing about the node itself changes, so its address is
+        unaffected and no alias is needed -- this is a change to the shape
+        of the tree, not to any memory in it.
+        """
+        addr = self.alias.resolve(addr)
+        new_parent = self.alias.resolve(new_parent)
+        if addr not in self._entries:
+            raise UnknownAddress(f"{addr} is not in the tree")
+        if new_parent not in self._entries:
+            raise UnknownAddress(f"{new_parent} is not in the tree")
+        if addr == new_parent:
+            raise ValueError("a node cannot be its own parent")
+
+        walker = new_parent
+        while walker is not None:
+            if walker == addr:
+                raise ValueError(
+                    f"reparenting {addr} under {new_parent} would create a cycle"
+                )
+            walker = self._entries[walker].node.parent
+
+        entry = self._entries[addr]
+        old_parent = entry.node.parent
+        if old_parent is not None:
+            old_parent = self.alias.resolve(old_parent)
+            self._children[old_parent] = [
+                c for c in self._children.get(old_parent, []) if c != addr
+            ]
+        entry.node = replace(entry.node, parent=new_parent)
+        self._children.setdefault(new_parent, []).append(addr)
 
     # ------------------------------------------------------------ accounting
 
