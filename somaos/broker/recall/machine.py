@@ -414,27 +414,65 @@ class RecallMachine:
 
     # ------------------------------------------------------------ fast path
 
-    def run_fast_path(self, *, max_materialized: int = 4) -> RecallResult:
-        """Walk greedily, without asking anyone. No LLM, no choices.
+    def run_fast_path(self, *, max_materialized: int = 8) -> RecallResult:
+        """Walk without asking anyone: best-first, with backtracking.
 
-        This is what runs when the model is not consulted, and what still
-        runs when the model bus is down (GATE degradation). It exists so
-        that agent-directed recall is an improvement measurable against a
-        working baseline, rather than the only thing that works.
+        This is what runs when the model is not consulted and what still
+        runs when the model bus is down, so it has to be a real searcher
+        rather than a placeholder -- otherwise agent-directed recall would
+        only ever be compared against something broken.
+
+        It keeps one frontier for the whole walk instead of taking the best
+        child at each node in turn. Greedy descent cannot recover from a
+        wrong turn: it was measured bringing back four neighbours of the
+        wanted memory while the memory itself sat five levels down at full
+        precision, unreached, with most of its step budget unspent. People
+        do not search that way either -- "no, not that trip, the other
+        one" is backtracking, and it is the whole reason ASCEND and LATERAL
+        exist as moves.
+
+        With a shared frontier a branch that turns out to be poor simply
+        stops producing high scores, and the search returns to the best
+        unexplored candidate anywhere it has been.
         """
-        while self.state is RecallState.NAVIGATE and self.ops_left > 0:
-            if self._position is None:
-                break
-            if len(self._materialized) < max_materialized:
-                self._materialize(self._position)
+        seen: dict[str, float] = {}
+        frontier: list[tuple[float, str]] = []
+
+        for addr, score in self._frontier:
+            frontier.append((score, addr))
+            seen[addr] = score
+        if self._position is not None and self._position not in seen:
+            seen[self._position] = 0.0
+
+        while frontier and self.ops_left > 0:
+            frontier.sort(key=lambda pair: (-pair[0], pair[1]))
+            score, addr = frontier.pop(0)
+            self._position = addr
+            self._visited.append(addr)
+            children = self.tree.rank_children(
+                addr, self._cue, tick=self._tick, beam=self.beam
+            )
+            self.path.ops_used += 1
+            self.path.steps.append(
+                WalkStep(Move.DESCEND, addr, score, self.path.ops_used)
+            )
+            for child, child_score in children:
+                if child in seen:
+                    continue
+                seen[child] = child_score
+                frontier.append((child_score, child))
+
+        # Report what the search found, best first. Materialising in score
+        # order rather than in the order the walk happened to pass things
+        # is what lets a bounded budget spend itself on the closest
+        # matches instead of on whatever was nearest the entrance.
+        for addr, _ in sorted(seen.items(), key=lambda pair: (-pair[1], pair[0])):
             if len(self._materialized) >= max_materialized:
                 break
-            if Move.DESCEND in self.offer():
-                self._descend()
-            elif Move.LATERAL in self.offer():
-                self._lateral()
-            else:
+            if self.state is not RecallState.NAVIGATE:
                 break
+            self._materialize(addr)
+
         if self.state is RecallState.NAVIGATE:
             self._stop("fast path complete")
         return self.finish()

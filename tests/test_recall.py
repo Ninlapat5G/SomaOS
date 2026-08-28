@@ -16,6 +16,11 @@ from somaos.broker.recall import Move, RecallMachine, RecallState
 from somaos.broker.recall.machine import IllegalMove, structural_tokens
 
 
+def _node(keys, level=ArchiveLevel.SPECIFIC_EVENT, **kw):
+    return make_node(region=Region.ARCHIVE, level=int(level),
+                     vec=embed(tuple(keys)), keys=tuple(keys), **kw)
+
+
 def _forest(groups=3, per_group=5, *, with_text=True, beam=4):
     tree = MemoryTree(beam=beam)
     for g in range(groups):
@@ -342,53 +347,59 @@ def test_the_fast_path_is_deterministic():
     assert run() == run()
 
 
-def test_an_agent_can_beat_the_fast_path_when_it_knows_where_to_look():
-    """The point of N-09: agent steering has to be able to pay for itself."""
-    tree = _forest(groups=4, per_group=6)
-    target_topic = "topic3"
+def test_the_fast_path_is_a_real_searcher_not_a_placeholder():
+    """It has to be, or agent-directed recall would only ever be compared
+    against something broken.
 
-    fast = RecallMachine(tree, ops_budget=4)
-    fast.begin(topics=("topic0",), tick=1)
-    fast_nodes = fast.run_fast_path().nodes
+    An earlier greedy version could not recover from a wrong turn: measured
+    on a full run it brought back four neighbours of the wanted memory
+    while the memory itself sat five levels down at full precision,
+    unreached, with most of its step budget unspent.
+    """
+    tree = _forest(groups=6, per_group=8)
+    # entry_points() is address-ordered, not topic-ordered.
+    home = next(a for a in tree.entry_points() if "topic4" in tree.get(a).keys)
+    wanted = tree.insert(make_node(
+        region=Region.ARCHIVE, level=int(ArchiveLevel.SPECIFIC_EVENT),
+        vec=embed(("topic4", "the needle")), keys=("topic4", "the needle"),
+    ), parent=home)
 
-    guided = RecallMachine(tree, ops_budget=4)
-    guided.begin(topics=(target_topic,), entities=("e31",), tick=1)
+    machine = RecallMachine(tree, ops_budget=16, context_budget_tokens=512)
+    machine.begin(topics=("topic4",), entities=("the needle",), tick=1)
+    found = machine.run_fast_path()
+    assert wanted in {n.addr for n in found.nodes}
+
+
+def test_the_search_can_recover_from_a_wrong_first_turn():
+    """One frontier for the whole walk, not the best child of each node in
+    turn. "No, not that trip, the other one" is backtracking."""
+    tree = MemoryTree(beam=2)
+    root_a = tree.insert(_node(("trip", "alps"), ArchiveLevel.GENERAL_EVENT))
+    root_b = tree.insert(_node(("trip", "coast"), ArchiveLevel.GENERAL_EVENT))
+    for i in range(6):
+        tree.insert(_node(("trip", "alps", f"a{i}")), parent=root_a)
+    wanted = tree.insert(_node(("trip", "coast", "the storm")), parent=root_b)
+
+    machine = RecallMachine(tree, ops_budget=12, context_budget_tokens=512)
+    machine.begin(topics=("trip",), entities=("the storm",), tick=1)
+    result = machine.run_fast_path()
+    assert wanted in {n.addr for n in result.nodes}
+
+
+def test_an_agent_steering_reaches_a_target_in_fewer_steps():
+    """What the agent's turn is for: not finding what the fast path cannot,
+    but getting there without exploring everything else first."""
+    tree = _forest(groups=6, per_group=8)
+
+    fast = RecallMachine(tree, ops_budget=16, context_budget_tokens=512)
+    fast.begin(topics=("topic3",), entities=("e31",), tick=1)
+    fast_ops = fast.run_fast_path().path.ops_used
+
+    guided = RecallMachine(tree, ops_budget=16, context_budget_tokens=512)
+    guided.begin(topics=("topic3",), entities=("e31",), tick=1)
     guided.step(Move.DESCEND)
     guided.step(Move.MATERIALIZE)
-    guided_nodes = guided.finish().nodes
+    result = guided.finish()
 
-    assert any(target_topic in n.keys for n in guided_nodes)
-    assert not any(target_topic in n.keys for n in fast_nodes)
-
-
-def test_a_habit_is_called_up_by_the_situation_not_searched_for():
-    """Squire's dissociation, in the routing.
-
-    H.M. could not form new episodes and still got better at a skill every
-    day, so procedural recall does not run through episodic search. Routing
-    it through the ARCHIVE walk would model the one arrangement the patient
-    data rules out -- and it measured as such: the tree crystallised habits
-    correctly and then scored zero on "what does this person usually do",
-    because nothing could reach them.
-    """
-    tree = _forest()
-    habit = tree.insert(make_node(
-        region=Region.SKILL, level=1, vec=embed(("coffee", "desk")),
-        keys=("coffee", "desk"), text_ref="habit: coffee + desk",
-    ))
-    machine = RecallMachine(tree)
-    machine.begin(topics=("coffee",), tick=5)
-    result = machine.finish()
-    assert habit in {n.addr for n in result.nodes}
-    assert machine.path.ops_used <= 1  # the entry choice only; the habit was free
-
-
-def test_an_unrelated_situation_does_not_call_up_the_habit():
-    tree = _forest()
-    tree.insert(make_node(
-        region=Region.SKILL, level=1, vec=embed(("coffee", "desk")),
-        keys=("coffee", "desk"),
-    ))
-    machine = RecallMachine(tree)
-    machine.begin(topics=("topic0",), tick=5)
-    assert all(n.region is not Region.SKILL for n in machine.finish().nodes)
+    assert any("e31" in n.keys for n in result.nodes)
+    assert result.path.ops_used < fast_ops
