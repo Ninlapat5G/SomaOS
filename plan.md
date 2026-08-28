@@ -1,6 +1,7 @@
 # plan.md — แผนงานและสถานะ
 
-> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: โครงสร้างหน่วยความจำสร้างเสร็จแล้ว (A1–A5) · 504 tests ผ่าน**
+> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: A0–A7 เสร็จ · 527 tests ผ่าน**
+> 📄 สรุปสถาปัตยกรรมสำหรับตรวจงาน: https://claude.ai/code/artifact/fb680222-48a4-4c3f-8c17-d7a6331deb47
 > ดีไซน์เก่า (surprise-gated encoding) ถูกยกเลิก — ผลการวัดเก็บที่ `plans/ARCHIVE_PHASE0_RESULT.md`
 
 ---
@@ -41,9 +42,10 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 | **A3** | `broker/memory/tree.py` | 28 | ต้นไม้ · แกนความลึก (retrieval strength) · เดินแบบมีเพดาน |
 | **A4** | `broker/regions/{core,trigger}.py` | 27 | CORE resident + quota · TRIGGER FSM 3 ชนิด |
 | **A5** | `broker/recall/machine.py` | 28 | FSM 6 สถานะ · 5 moves · WalkPath · fast path |
+| **A7** | `broker/consolidation/machine.py` | 23 | REPLAY→ABSTRACT→REBALANCE→ENFORCE · ตกผลึกนิสัย |
 | — | `bench/experiments/` | — | `quantization_fidelity.py` · `capacity_curve.py` |
 
-**รวม 504 tests ผ่านทั้งหมด** (เดิม 394 + ใหม่ 141 − ที่เลิกใช้)
+**รวม 527 tests ผ่านทั้งหมด**
 
 ### 1.3 โค้ดเก่าที่ยังไม่แตะ
 
@@ -74,7 +76,7 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 | **A3** | ต้นไม้ + แกนความลึก | I6 · depth histogram | ✅ 28 tests |
 | **A4** | `broker/regions/` — CORE/TRIGGER + quota | I4 | ✅ 27 tests |
 | **A5** | `broker/recall/` — FSM + fast path + WalkPath | I6, I8 | ✅ 28 tests |
-| **A7** | consolidation FSM — REPLAY→ABSTRACT→REBALANCE→ENFORCE + ตกผลึกนิสัย | นิสัยโผล่ขึ้น CORE จริง | ⬜ |
+| **A7** | consolidation FSM + ตกผลึกนิสัย | นิสัยเกิดจากกิจวัตรจริง ไม่ใช่กองงานสะเปะสะปะ | ✅ 23 tests |
 | **A8** | policy `S` ห่อ tree+dilution+recall ใต้ protocol เดิม | สลับผ่าน config ได้ | ⬜ |
 | **A9** | trace generator ใหม่ — query 4 ระดับ (N-12) | มี query ที่ทดสอบนิสัย/trigger | ⬜ |
 | **A10** | metric detail/gist แยกกัน + `recall_ops` + `store_used` (N-11) | วัดกับ ground truth | ⬜ |
