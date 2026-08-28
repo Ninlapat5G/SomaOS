@@ -251,8 +251,11 @@ def test_children_follow_a_replaced_parent():
 
 def test_a_dissolved_memory_answers_through_its_parent():
     tree, root, kids = _tree_with_children(3)
-    tree.dissolve_into_parent(kids[0])
-    assert tree.resolve(kids[0]).node.addr == root
+    parent = tree.dissolve_into_parent(kids[0])
+    # Absorbing the child moved the parent, so the parent has a new address;
+    # the old one still forwards there, which is the point.
+    assert tree.resolve(kids[0]).node.addr == parent
+    assert tree.alias.resolve(root) == parent
 
 
 def test_counting_away_a_memory_leaves_a_tally_not_a_hole():
@@ -269,9 +272,9 @@ def test_grandchildren_are_re_parented_never_orphaned():
     root = tree.insert(_node(("life",), ArchiveLevel.LIFETIME_PERIOD))
     mid = tree.insert(_node(("trip",), ArchiveLevel.GENERAL_EVENT), parent=root)
     leaf = tree.insert(_node(("trip", "photo"), ArchiveLevel.VERBATIM), parent=mid)
-    tree.dissolve_into_parent(mid)
-    assert tree.get(leaf).parent == root
-    assert leaf in tree.children_of(root)
+    surviving_root = tree.dissolve_into_parent(mid)
+    assert tree.get(leaf).parent == surviving_root
+    assert leaf in tree.children_of(surviving_root)
     assert tree.resolve(leaf).node.addr == leaf  # untouched, still itself
 
 
@@ -333,3 +336,27 @@ def test_grade_histogram_tracks_the_ladder():
     ))
     hist = tree.grade_histogram()
     assert hist["D0_EXACT"] == 3 and hist["D1_INT8"] == 1
+
+
+def test_absorbing_a_child_moves_the_parent_and_forwards_its_address():
+    """The Merkle consequence: a parent that now stands for more is a
+    different parent, and everyone holding the old address is forwarded."""
+    tree, root, kids = _tree_with_children(3)
+    parent = tree.dissolve_into_parent(kids[0])
+    assert parent != root
+    assert tree.alias.resolve(root) == parent
+    assert tree.get(parent).n_merged == 2
+    for kid in kids[1:]:
+        assert tree.get(kid).parent == parent
+
+
+def test_a_collapsed_fidelity_bound_does_not_mean_the_memory_is_gone():
+    """The bound is a worst case; reachability is not negotiable (N-01)."""
+    tree, root, kids = _tree_with_children(6)
+    for kid in kids[:5]:
+        if kid in tree:
+            tree.dissolve_into_parent(kid)
+    for kid in kids[:5]:
+        resolved = tree.resolve(kid)
+        assert resolved.node is not None
+        assert 0.0 <= resolved.fidelity <= 1.0

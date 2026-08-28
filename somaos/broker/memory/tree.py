@@ -27,6 +27,7 @@ agent has ever experienced (N-08).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -41,7 +42,7 @@ from somaos.broker.memory.node import (
     WALK_ENTRY_LEVEL,
     make_node,
 )
-from somaos.broker.memory.vector import Grade, similarity
+from somaos.broker.memory.vector import Grade, encode, similarity
 
 #: How much of the gap to full strength one use closes. 0.5 means a single
 #: retrieval halves the distance to 1.0 -- fast enough that one deliberate
@@ -58,14 +59,43 @@ DECAY_PER_TICK = 0.999
 MIN_RETRIEVAL_STRENGTH = 1e-3
 
 
+def _compose(previous: float, step: float) -> float:
+    """Angular-distance composition; see dilution.engine.compose_fidelity.
+
+    Duplicated here rather than imported to keep the memory core free of a
+    dependency on the dilution package, which sits above it.
+    """
+    theta_prev = math.acos(max(-1.0, min(1.0, previous)))
+    theta_step = math.acos(max(-1.0, min(1.0, step)))
+    return max(0.0, math.cos(min(theta_prev + theta_step, math.pi)))
+
+
 class UnknownAddress(KeyError):
     """Raised for an address the tree has never seen. Distinct from a diluted one."""
 
 
 @dataclass(frozen=True, slots=True)
 class Resolution:
-    """What ``resolve`` hands back: the node standing today, plus how much
-    of the original survived and how far the alias chain had to be walked."""
+    """What ``resolve`` hands back: the node standing today, how far the
+    alias chain had to be walked, and a *lower bound* on how much of the
+    requested memory survives.
+
+    ``fidelity`` is a bound, not a measurement, and a deliberately
+    conservative one. Computing the true cosine against the original would
+    mean keeping the original float32 vector, which is exactly what the
+    store budget exists to avoid, so the store composes per-step angles
+    instead. Angular distance obeys the triangle inequality, so the
+    composition never overstates what survived -- but it is a worst case,
+    and after several steps it decays much faster than the real thing,
+    reaching 0.0 for memories that in practice still land in the right
+    part of the space.
+
+    So: trust this number to be safe, not to be accurate. Never report it
+    as the answer to "how much was lost". The benchmark measures that
+    against ground truth it holds itself, for the same reason the old
+    harness priced page faults from the trace rather than from the policy:
+    a component must not be allowed to score its own work.
+    """
 
     node: MemoryNode
     fidelity: float
@@ -103,6 +133,14 @@ class MemoryTree:
         self._by_region: dict[Region, set[str]] = {r: set() for r in Region}
         self._by_key: dict[str, set[str]] = {}
         self.alias = AliasTable()
+        #: Per-hop cosine: how much of the *content at this address* carried
+        #: over into whatever replaced it. One entry per alias link, so a
+        #: memory that has moved several times composes its own history on
+        #: read rather than any single hop standing in for the whole chain.
+        #: Storing a running total here instead was a bug: the first hop's
+        #: value (int8, near-lossless) was reported for an address that had
+        #: since been binarised, overstating what survived.
+        self._step_cosine: dict[str, float] = {}
         #: Tally of what has been fully dissolved into an ancestor (D4).
         #: Kept so that a counted-away memory can still answer "something
         #: like this happened, n times" rather than nothing at all.
@@ -156,8 +194,24 @@ class MemoryTree:
         if entry is None:
             raise UnknownAddress(f"{addr} was never issued by this tree")
         return Resolution(
-            node=entry.node, fidelity=entry.node.fidelity, hops=hops, requested=addr
+            node=entry.node,
+            fidelity=self._surviving(addr),
+            hops=hops,
+            requested=addr,
         )
+
+    def _surviving(self, addr: str) -> float:
+        """Lower bound on how much of ``addr`` is left, composed over its hops.
+
+        Composition matters: two steps that each keep 0.9 do not keep 0.9
+        together. Angles add, so the bound falls faster than any single hop
+        suggests -- which is the conservative direction.
+        """
+        chain = self.alias.chain(addr)
+        surviving = 1.0
+        for link in chain[:-1]:
+            surviving = _compose(surviving, self._step_cosine.get(link, 1.0))
+        return surviving
 
     def get(self, addr: str) -> MemoryNode | None:
         """Raw lookup with no alias following. For internals and tests."""
@@ -314,16 +368,25 @@ class MemoryTree:
 
         del self._entries[old_addr]
         self.alias.add(old_addr, new_node.addr)
+        self._step_cosine[old_addr] = similarity(entry.node.vec, new_node.vec)
         return new_node.addr
 
     def dissolve_into_parent(self, addr: str, *, counted: bool = False) -> str:
-        """Fold a node into its parent (D3), or tally it away entirely (D4).
+        """Fold a node into its parent (D3), or tally it away (D4).
 
         The node stops existing as an individual: its address forwards to
-        the parent, so a query holding it still gets an answer about the
-        group it belonged to. With ``counted``, the parent also keeps a
-        tally, which is the floor state -- "things like this happened here,
-        n times" -- and the reason D4 is not deletion.
+        the parent, so a query holding it still gets an answer -- about the
+        group it belonged to rather than about itself.
+
+        The two rungs differ in whether the memory still gets a say in what
+        that group is. At D3 its vector is averaged into the parent's
+        centroid, so it still shapes the gist. At D4 it contributes only a
+        tally, because a memory that has already been through sign
+        quantization and several compositions carries enough angular error
+        that averaging it in would corrupt the parent more than it informs
+        it. Either way the parent's count grows, so "things like this
+        happened here, n times" survives -- which is why the last rung is
+        still not deletion.
 
         Grandchildren re-parent upward rather than being dropped; nothing
         may become unreachable.
@@ -351,10 +414,48 @@ class MemoryTree:
             self._by_key.get(key, set()).discard(addr)
         del self._entries[addr]
 
+        if not counted:
+            parent = self._absorb(parent, entry.node)
+
         self.alias.add(addr, parent)
-        if counted:
-            self.counters[parent] = self.counters.get(parent, 0) + entry.node.n_merged
+        self.counters[parent] = self.counters.get(parent, 0) + entry.node.n_merged
+        self._step_cosine[addr] = similarity(
+            entry.node.vec, self._entries[parent].node.vec
+        )
         return parent
+
+    def _absorb(self, parent: str, child: MemoryNode) -> str:
+        """Average ``child`` into ``parent``'s centroid, weighted by how many
+        memories each already stands for.
+
+        The parent's own fidelity falls as a result: it has moved away from
+        what it originally was in order to speak for more. That is the
+        honest accounting -- a summary that covers more ground says less
+        about any one thing.
+        """
+        entry = self._entries[parent]
+        node = entry.node
+        weight_p, weight_c = float(node.n_merged), float(child.n_merged)
+        blended = (
+            np.asarray(node.vec, dtype=np.float32) * weight_p
+            + np.asarray(child.vec, dtype=np.float32) * weight_c
+        ) / (weight_p + weight_c)
+        if node.grade is not Grade.D0_EXACT:
+            blended = encode(blended, node.grade)
+        merged = make_node(
+            region=node.region, level=node.level, vec=blended, grade=node.grade,
+            parent=node.parent, children=node.children,
+            n_merged=node.n_merged + child.n_merged,
+            span=(min(node.span[0], child.span[0]), max(node.span[1], child.span[1])),
+            keys=node.keys, text_ref=node.text_ref, raw_refs=node.raw_refs,
+        )
+        merged = replace(
+            merged,
+            fidelity=_compose(node.fidelity, similarity(node.vec, blended)),
+        )
+        if merged.addr == parent:
+            return parent
+        return self.replace_node(parent, merged)
 
     # ------------------------------------------------------------ accounting
 
