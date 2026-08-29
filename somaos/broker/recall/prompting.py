@@ -1,0 +1,273 @@
+"""Turning a walk into a question a model can answer, and back again.
+
+``describe()`` produces the data a chooser needs. This turns that into
+text and turns a reply back into a move. It is kept separate from the
+navigator because the two fail differently: a navigator bug loses a
+memory, a prompting bug loses only this turn, and mixing them would make
+a model that answers badly indistinguishable from a walk that is broken.
+
+Nothing here touches a network. The runtime stays transport-free; a
+caller supplies ``complete(prompt) -> str`` and owns the connection.
+
+Three decisions worth stating, because they are what make this work with
+a small local model rather than only with a large hosted one:
+
+**Options are numbered, not addressed.** ``describe()`` hands out
+71-character content addresses. Asking a 4B-parameter model to copy one
+back verbatim is asking it to fail: it will drop a character, or
+hallucinate a plausible-looking one, and every such answer arrives as an
+off-menu move. So the prompt shows ``1``, ``2``, ``3`` and this module
+maps the number back to the real address. The model never sees a hash.
+
+**The reply is parsed permissively and resolved strictly.** A small model
+will wrap its answer in prose, in markdown fences, or in a sentence. All
+of that is fine and is stripped. What is *not* negotiable is that the
+answer has to land on an option that was actually offered -- being
+generous about form while staying strict about outcome is what keeps
+"the model chose" meaningful.
+
+**The prompt shows only where the walk stands.** Same discipline as
+``describe()``: the current memory and its neighbours, never the store.
+A prompt that listed everything would not be navigation, and the model
+would be doing retrieval by reading rather than by remembering.
+"""
+from __future__ import annotations
+
+import json
+import re
+
+from somaos.broker.recall.navigator import NavigationError
+
+#: What the model is told it is doing. Short on purpose: a small model
+#: given a long preamble spends its attention on the preamble.
+SYSTEM_PROMPT = (
+    "You are recalling a memory by walking a tree of memories.\n"
+    "You are standing at one memory. You can move to a related one, "
+    "step back to a broader one, bring the current one to mind, or stop.\n"
+    "Moving uses effort. Bringing a memory to mind uses none, so bring "
+    "anything useful to mind as you pass it.\n"
+    "Answer with the number of one option and nothing else."
+)
+
+_FENCE = re.compile(r"```(?:json|JSON)?\s*(.*?)```", re.DOTALL)
+_NUMBER = re.compile(r"\b(\d{1,3})\b")
+_LABELLED = re.compile(r"(?:choice|answer|option|move)\s*[:=]\s*(\d{1,3}|[a-z]+)", re.I)
+
+#: Words that mean "finish" wherever they appear in a reply. Every one is
+#: a verb a model only uses when it has decided to stop, so finding one
+#: mid-sentence ("I think we should stop here") is safe.
+_STOP_VERBS = frozenset({"stop", "done", "finish", "finished"})
+
+#: Words that mean "finish" only when they are the entire reply. "no" and
+#: "none" are here rather than above because scanning for them anywhere
+#: turns confusion into a decision: "no idea" contains a standalone "no",
+#: and a model that has just told you it is lost would be recorded as
+#: having chosen to stop. An experiment measuring whether a model
+#: navigates well cannot afford to read its confusion as decisiveness.
+_STOP_ALONE = _STOP_VERBS | {"none", "no", "nothing"}
+
+
+def render_prompt(view: dict, *, include_system: bool = True) -> str:
+    """Render one decision point as text.
+
+    Deterministic: the same view always renders the same string, so a run
+    against a temperature-zero model is replayable and a recorded
+    transcript can be matched back to the position that produced it.
+    """
+    lines: list[str] = []
+    if include_system:
+        lines.append(SYSTEM_PROMPT)
+        lines.append("")
+
+    here = view.get("here")
+    if here:
+        lines.append("You are at this memory:")
+        lines.append(f"  about: {', '.join(here.get('keys', ())) or '(nothing recorded)'}")
+        if here.get("text_ref"):
+            lines.append(f"  note: {here['text_ref']}")
+        span = here.get("span") or ()
+        if len(span) == 2:
+            lines.append(f"  when: {span[0]} to {span[1]}")
+    else:
+        lines.append("You have not started walking yet.")
+
+    lines.append("")
+    budget = f"Effort left: {view.get('ops_left', 0)} moves."
+    room = view.get("can_bring_to_mind")
+    if room is None:
+        budget += f"  Brought to mind so far: {view.get('materialized', 0)}."
+    else:
+        budget += (f"  Brought to mind: {view.get('materialized', 0)}"
+                   f" (room for {room} more, at no cost in effort).")
+    lines.append(budget)
+
+    error = view.get("error")
+    if error:
+        lines.append("")
+        lines.append(f"Your last answer could not be used: {error}")
+        lines.append("Answer with one of the numbers below.")
+
+    lines.append("")
+    lines.append("Options:")
+    for index, option, label in _numbered(view):
+        lines.append(f"  {index}. {label}")
+
+    lines.append("")
+    lines.append("Which number?")
+    return "\n".join(lines)
+
+
+def _describe_option(option: dict) -> str:
+    """One option as a phrase, with no address in it."""
+    move = option.get("move")
+    if move == "stop":
+        return "Stop -- I have what I need."
+    if move == "materialize":
+        return "Bring this memory to mind."
+    if move == "ascend":
+        return "Step back to the broader memory this belongs to."
+
+    keys = ", ".join(option.get("keys", ())) or "(nothing recorded)"
+    note = option.get("text_ref")
+    where = "Go to a related memory" if move == "lateral" else "Go into a memory within this one"
+    described = f"{where}: {keys}"
+    if note:
+        described += f" -- {note}"
+    return described
+
+
+def _numbered(view: dict) -> list[tuple[int, dict, str]]:
+    """Options paired with the numbers the model will answer with.
+
+    One-based because a model asked to choose from a list starting at
+    zero picks 1 anyway, and then means the second item.
+    """
+    return [
+        (index, option, _describe_option(option))
+        for index, option in enumerate(view.get("options", ()), start=1)
+    ]
+
+
+def parse_choice(reply: str, view: dict) -> dict:
+    """Turn a model's reply into one of the options it was shown.
+
+    Raises :class:`NavigationError` if the reply cannot be resolved to an
+    offered option. That is the right failure: the navigator retries it
+    by showing the menu again with the reason attached, which is how a
+    model that fumbles once still gets to finish the walk.
+    """
+    options = list(view.get("options", ()))
+    if not options:
+        raise NavigationError("nothing was offered, so nothing can be chosen")
+
+    text = (reply or "").strip()
+    if not text:
+        raise NavigationError("the model replied with nothing")
+
+    fenced = _FENCE.search(text)
+    if fenced:
+        text = fenced.group(1).strip()
+
+    # A model that answers in JSON is answering well; take it first.
+    try:
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        parsed = None
+    if isinstance(parsed, dict):
+        for key in ("choice", "option", "answer", "number", "move"):
+            if key in parsed:
+                return _resolve(parsed[key], options, reply)
+    if isinstance(parsed, int):
+        return _resolve(parsed, options, reply)
+
+    labelled = _LABELLED.search(text)
+    if labelled:
+        return _resolve(labelled.group(1), options, reply)
+
+    lowered = text.lower()
+    bare = lowered.strip().strip(".!,;:'\"*` ")
+    if bare in _STOP_ALONE or any(
+        re.search(rf"\b{word}\b", lowered) for word in _STOP_VERBS
+    ):
+        stop = next((o for o in options if o.get("move") == "stop"), None)
+        if stop is not None:
+            return stop
+
+    number = _NUMBER.search(text)
+    if number:
+        return _resolve(number.group(1), options, reply)
+
+    raise NavigationError(
+        f"could not find a choice in {reply.strip()[:80]!r}; "
+        f"expected a number from 1 to {len(options)}"
+    )
+
+
+def _resolve(raw, options: list[dict], reply: str) -> dict:
+    if isinstance(raw, str) and raw.strip().lower() in _STOP_ALONE:
+        stop = next((o for o in options if o.get("move") == "stop"), None)
+        if stop is not None:
+            return stop
+    if isinstance(raw, str) and not raw.strip().lstrip("+-").isdigit():
+        # A bare move name, e.g. {"move": "descend"}. Honoured when exactly
+        # one option carries it; ambiguous otherwise, and guessing which of
+        # four children it meant would be inventing the model's decision.
+        named = [o for o in options if o.get("move") == raw.strip().lower()]
+        if len(named) == 1:
+            return named[0]
+        if len(named) > 1:
+            raise NavigationError(
+                f"{raw!r} matches {len(named)} options; answer with a number"
+            )
+        raise NavigationError(f"{raw!r} is not one of the options")
+
+    try:
+        index = int(str(raw).strip())
+    except (TypeError, ValueError) as exc:
+        raise NavigationError(f"{raw!r} is not a number") from exc
+
+    if not 1 <= index <= len(options):
+        raise NavigationError(
+            f"option {index} does not exist; there are {len(options)}"
+        )
+    return options[index - 1]
+
+
+class PromptedChooser:
+    """A chooser backed by a text-completion function.
+
+    Pass one to :class:`~somaos.broker.recall.navigator.CallableNavigator`::
+
+        nav = CallableNavigator(PromptedChooser(my_model.complete))
+
+    ``complete`` takes a prompt and returns the model's text. Everything
+    about how that text is produced -- endpoint, sampling, batching,
+    retries at the transport layer -- belongs to the caller.
+
+    The transcript is kept so a run can be read back afterwards. An
+    experiment comparing model-driven recall against the fast path needs
+    to be able to answer "what did it actually see, and what did it say",
+    and reconstructing that from logs later never works.
+    """
+
+    def __init__(self, complete, *, keep_transcript: bool = True) -> None:
+        self._complete = complete
+        self.keep_transcript = keep_transcript
+        #: (prompt, reply) per call, oldest first.
+        self.transcript: list[tuple[str, str]] = []
+        #: Prompt characters sent. A rough stand-in for tokens, and the
+        #: honest cost of putting a model in the loop -- reported so it
+        #: sits beside the quality it bought rather than out of sight.
+        self.prompt_chars = 0
+
+    def reset(self) -> None:
+        self.transcript = []
+        self.prompt_chars = 0
+
+    def __call__(self, view: dict) -> dict:
+        prompt = render_prompt(view)
+        self.prompt_chars += len(prompt)
+        reply = self._complete(prompt)
+        if self.keep_transcript:
+            self.transcript.append((prompt, reply))
+        return parse_choice(reply, view)

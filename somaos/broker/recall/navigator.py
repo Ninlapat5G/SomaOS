@@ -82,7 +82,8 @@ class Choice:
         return f"Choice({self.move.value}, addr={self.addr}, score={self.score:.3f})"
 
 
-def describe(machine: RecallMachine, *, reveal_text: bool = True) -> dict:
+def describe(machine: RecallMachine, *, reveal_text: bool = True,
+             max_materialized: int | None = None) -> dict:
     """The walk's current position, as data a model can be asked about.
 
     ``reveal_text`` controls whether the shadow text of the *current*
@@ -106,7 +107,7 @@ def describe(machine: RecallMachine, *, reveal_text: bool = True) -> dict:
             if reveal_text and node.text_ref:
                 here["text_ref"] = node.text_ref
 
-    return {
+    view = {
         "state": machine.state.value,
         "here": here,
         "ops_left": machine.ops_left,
@@ -117,6 +118,13 @@ def describe(machine: RecallMachine, *, reveal_text: bool = True) -> dict:
         "materialized": len(machine._materialized),
         "options": [c.to_jsonable() for c in options(machine, reveal_text=reveal_text)],
     }
+    if max_materialized is not None:
+        # How many more may still be brought into context. Separate from
+        # ops_left because they are separate currencies and a chooser
+        # that conflates them navigates badly: moving spends effort,
+        # bringing a memory to mind spends context and no effort at all.
+        view["can_bring_to_mind"] = max(0, max_materialized - len(machine._materialized))
+    return view
 
 
 def options(machine: RecallMachine, *, reveal_text: bool = True) -> tuple[Choice, ...]:
@@ -295,7 +303,8 @@ class CallableNavigator:
                 machine.path.stopped_by = "materialized budget"
                 break
 
-            view = describe(machine, reveal_text=self.reveal_text)
+            view = describe(machine, reveal_text=self.reveal_text,
+                            max_materialized=max_materialized)
             move, addr, failure = self._consult(view, legal)
             if failure is not None:
                 machine.step(Move.STOP)
