@@ -34,6 +34,24 @@ def _imported_modules(path: Path) -> list[str]:
     return mods
 
 
+def test_broker_never_imports_bench():
+    """The runtime must not depend on the thing that measures it.
+
+    This pointed the wrong way for most of Phase 0b: broker/policies/life.py
+    imported Episode, Question and Intention from somaos.bench.lifeworld, so
+    an application would have had to ship the benchmark to feed the memory
+    anything. The runtime's own types now live in broker/events.py and the
+    bench's richer types satisfy them structurally, which keeps the
+    ground-truth fields on the bench side where a policy cannot reach them.
+    """
+    offenders = []
+    for path in sorted((SOMAOS / "broker").rglob("*.py")):
+        for mod in _imported_modules(path):
+            if mod.startswith("somaos.bench") or mod == "somaos.bench":
+                offenders.append(f"{path.relative_to(ROOT)} imports {mod}")
+    assert not offenders, "broker must not import bench:\n  " + "\n  ".join(offenders)
+
+
 def test_bench_trace_does_not_import_policies():
     for path in (SOMAOS / "bench" / "trace").glob("*.py"):
         for mod in _imported_modules(path):

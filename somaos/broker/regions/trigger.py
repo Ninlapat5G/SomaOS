@@ -125,6 +125,54 @@ class TriggerRegistry:
             self._predicates.add(trigger.id)
         return trigger.id
 
+    def snapshot(self) -> dict:
+        """Every intention and what state it is in.
+
+        Saved in full, including retired ones, because "already done" has
+        to survive a restart: an agent that reloaded and re-fired every
+        intention it had ever completed would be worse than one with no
+        intentions at all.
+        """
+        return {
+            "ops_used": self.ops_used,
+            "triggers": [
+                {
+                    "id": t.id, "kind": t.kind.value, "action": t.action,
+                    "state": int(t.state), "cue": t.cue, "due_tick": t.due_tick,
+                    "every": t.every, "condition": t.condition, "repeat": t.repeat,
+                    "created_tick": t.created_tick, "fired_count": t.fired_count,
+                }
+                for t in self._by_id.values()
+            ],
+        }
+
+    @classmethod
+    def restore(cls, snap: dict) -> TriggerRegistry:
+        registry = cls()
+        for row in snap.get("triggers", ()):
+            trigger = Trigger(
+                id=row["id"], kind=TriggerKind(row["kind"]), action=row["action"],
+                state=TriggerState(int(row["state"])), cue=row["cue"],
+                due_tick=row["due_tick"], every=row["every"],
+                condition=row["condition"], repeat=bool(row["repeat"]),
+                created_tick=int(row["created_tick"]),
+                fired_count=int(row["fired_count"]),
+            )
+            registry._by_id[trigger.id] = trigger
+            # Only rebuild the lookups for intentions that can still fire.
+            # A retired one stays in _by_id so it is remembered as done,
+            # and out of the indexes so it never surfaces again (I10's
+            # spirit: retirement is permanent).
+            if trigger.state is not TriggerState.RETIRED:
+                if trigger.kind is TriggerKind.EVENT and trigger.cue:
+                    registry._by_cue.setdefault(trigger.cue, set()).add(trigger.id)
+                elif trigger.kind is TriggerKind.TIME and trigger.due_tick is not None:
+                    heapq.heappush(registry._due, (trigger.due_tick, trigger.id))
+                elif trigger.kind is TriggerKind.PREDICATE:
+                    registry._predicates.add(trigger.id)
+        registry.ops_used = int(snap.get("ops_used", 0))
+        return registry
+
     def get(self, trigger_id: str) -> Trigger:
         return self._by_id[trigger_id]
 

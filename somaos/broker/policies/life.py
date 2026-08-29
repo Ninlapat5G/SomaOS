@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from somaos.bench.lifeworld import Episode, Intention, Question
 from somaos.broker.consolidation import ConsolidationMachine
 from somaos.broker.dilution import DilutionEngine
+from somaos.broker.events import CueLike, IntentLike, ObservationLike
 from somaos.broker.memory.node import ArchiveLevel, MemoryNode, Region, make_node
 from somaos.broker.memory.tree import MemoryTree
 from somaos.broker.memory.vector import (
@@ -65,7 +65,7 @@ class Outcome:
     ops: int
 
 
-def _episode_node(episode: Episode, level=ArchiveLevel.SPECIFIC_EVENT) -> MemoryNode:
+def _episode_node(episode: ObservationLike, level=ArchiveLevel.SPECIFIC_EVENT) -> MemoryNode:
     return make_node(
         region=Region.ARCHIVE, level=int(level), vec=embed(episode.keys),
         keys=episode.keys, span=(episode.tick, episode.tick),
@@ -99,7 +99,7 @@ class _Base:
 
     def _reset(self) -> None: ...
 
-    def intend(self, intention: Intention) -> None:
+    def intend(self, intention: IntentLike) -> None:
         if intention.kind == "time":
             self.triggers.arm(Trigger(
                 id=intention.id, kind=TriggerKind.TIME,
@@ -144,7 +144,7 @@ class _Flat(_Base):
         self.nodes: list[MemoryNode] = []
         self.dropped = 0
 
-    def perceive(self, episode: Episode) -> None:
+    def perceive(self, episode: ObservationLike) -> None:
         self.nodes.append(_episode_node(episode))
         self._enforce()
 
@@ -174,7 +174,7 @@ class B0Full(_Flat):
 
     name = "B0"
 
-    def recall(self, question: Question) -> Outcome:
+    def recall(self, question: CueLike) -> Outcome:
         before = self.comparisons
         ranked = sorted(self.nodes, key=lambda n: (-n.span[1], n.addr))
         self.comparisons += len(self.nodes)
@@ -192,7 +192,7 @@ class B1Window(_Flat):
             self.nodes.pop(0)
             self.dropped += 1
 
-    def recall(self, question: Question) -> Outcome:
+    def recall(self, question: CueLike) -> Outcome:
         ranked = sorted(self.nodes, key=lambda n: (-n.span[1], n.addr))
         nodes, tokens = self._fit(ranked)
         return Outcome(nodes, tokens, 0, 1)
@@ -212,7 +212,7 @@ class B2Rag(_Flat):
             self.nodes.pop(0)
             self.dropped += 1
 
-    def recall(self, question: Question) -> Outcome:
+    def recall(self, question: CueLike) -> Outcome:
         before = self.comparisons
         nodes, tokens = self._fit(self._rank(question))
         return Outcome(nodes, tokens, self.comparisons - before, 1)
@@ -255,7 +255,7 @@ class B2cCompressed(_Flat):
                 keys=node.keys, span=node.span, text_ref=node.text_ref,
             )
 
-    def recall(self, question: Question) -> Outcome:
+    def recall(self, question: CueLike) -> Outcome:
         before = self.comparisons
         nodes, tokens = self._fit(self._rank(question))
         return Outcome(nodes, tokens, self.comparisons - before, 1)
@@ -293,7 +293,7 @@ class STree(_Base):
             self._periods[key] = self.tree.insert(node, tick=episode.tick)
         return self._periods[key]
 
-    def perceive(self, episode: Episode) -> None:
+    def perceive(self, episode: ObservationLike) -> None:
         self.tree.insert(
             _episode_node(episode), parent=self._period_node(episode), tick=episode.tick
         )
@@ -305,7 +305,7 @@ class STree(_Base):
         if due or self.tree.store_bytes() > self.budgets.store_bytes:
             self.consolidation.run(self.tree, tick=tick, window=self.consolidate_every * 4)
 
-    def recall(self, question: Question) -> Outcome:
+    def recall(self, question: CueLike) -> Outcome:
         self.tree.reset_comparisons()
         walk = RecallMachine(
             self.tree,

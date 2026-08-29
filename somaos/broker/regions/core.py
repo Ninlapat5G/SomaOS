@@ -104,6 +104,36 @@ class CoreSet:
             self._origin[addr] = origin
         return addr
 
+    def snapshot(self) -> dict:
+        """Which addresses are identity, at what level, and how they got there.
+
+        The nodes themselves live in the tree and are saved with it; this
+        is only the membership. Origin is kept because it decides what may
+        later be demoted: a seeded trait is a premise, an emerged one is a
+        claim about a pattern, and reloading must not turn one into the
+        other.
+        """
+        return {
+            "quota_bytes": self.quota_bytes,
+            "tokens_per_node": self.tokens_per_node,
+            "members": [
+                {"addr": addr, "level": int(level), "origin": self._origin[addr].value}
+                for level, addrs in self._levels.items()
+                for addr in addrs
+                if addr in self._origin
+            ],
+        }
+
+    @classmethod
+    def restore(cls, snap: dict) -> CoreSet:
+        core = cls(quota_bytes=int(snap["quota_bytes"]),
+                   tokens_per_node=int(snap.get("tokens_per_node", 32)))
+        for row in snap.get("members", ()):
+            level = CoreLevel(int(row["level"]))
+            core._levels.setdefault(level, []).append(row["addr"])
+            core._origin[row["addr"]] = Origin(row["origin"])
+        return core
+
     def origin_of(self, addr: str) -> Origin | None:
         return self._origin.get(addr)
 

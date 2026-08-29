@@ -154,6 +154,46 @@ class _Entry:
     occurrences: int = 1
 
 
+def _pack_vector(vec: np.ndarray, grade: Grade) -> tuple[bytes, int]:
+    """Serialise a vector at the grade it is actually stored at.
+
+    Writing everything as float32 was the first version and it was wrong:
+    a store diluted to sign bits went to disk twenty-seven times larger
+    than the budget said it was, so the file contradicted the one number
+    -- "brain size" -- that the whole capacity argument is stated in. It
+    also mattered for the device work, where the file *is* the store.
+
+    D0 goes out as float32, D1 as int8, and D2 as one bit per dimension,
+    which is exactly what ``nbytes`` charges for each. All three are
+    lossless: D1 and D2 vectors are already int8 in memory, and D2's
+    values are exactly +-1, so a bit each loses nothing.
+    """
+    if grade is Grade.D2_BINARY:
+        bits = (np.asarray(vec).reshape(-1) > 0).astype(np.uint8)
+        return np.packbits(bits).tobytes(), int(bits.size)
+    if grade is Grade.D1_INT8:
+        arr = np.asarray(vec).astype(np.int8, copy=False)
+        return arr.tobytes(), int(arr.size)
+    arr = np.asarray(vec).astype("<f4", copy=False)
+    return arr.tobytes(), int(arr.size)
+
+
+def _unpack_vector(raw: bytes, grade: Grade, dim: int) -> np.ndarray:
+    """Inverse of :func:`_pack_vector`, restoring the in-memory dtype too.
+
+    The dtype is part of what is being restored, not an implementation
+    detail: a diluted node holds int8 in memory, and handing it back as
+    float32 would quadruple the RAM of a store that was diluted precisely
+    to avoid that.
+    """
+    if grade is Grade.D2_BINARY:
+        bits = np.unpackbits(np.frombuffer(raw, dtype=np.uint8), count=dim)
+        return np.where(bits > 0, np.int8(1), np.int8(-1)).astype(np.int8)
+    if grade is Grade.D1_INT8:
+        return np.frombuffer(raw, dtype=np.int8).copy()
+    return np.frombuffer(raw, dtype="<f4").astype(np.float32)
+
+
 class MemoryTree:
     """Content-addressed store with a bounded walk.
 
@@ -190,6 +230,131 @@ class MemoryTree:
         #: Kept so that a counted-away memory can still answer "something
         #: like this happened, n times" rather than nothing at all.
         self.counters: dict[str, int] = {}
+
+    # ------------------------------------------------------------ snapshot
+
+    def snapshot(self) -> dict:
+        """Everything needed to rebuild this tree exactly.
+
+        Returned as plain Python so the file format lives in
+        ``broker/persistence.py`` and the correctness of what must be
+        captured lives here, next to the state it describes.
+
+        Vectors go out as raw little-endian float32 bytes rather than as
+        lists of numbers. Not for size: addresses are derived from
+        content, so a vector that came back even one bit different would
+        no longer hash to the address pointing at it, and the store would
+        stop being able to resolve itself. Text is the one thing that may
+        legitimately be dropped on the way back in (invariant V1).
+        """
+        packed = {
+            addr: _pack_vector(entry.node.vec, entry.node.grade)
+            for addr, entry in self._entries.items()
+        }
+        return {
+            "beam": self.beam,
+            "decay_per_tick": self.decay_per_tick,
+            "comparisons": self.comparisons,
+            "nodes": [
+                {
+                    "addr": addr,
+                    "region": int(entry.node.region),
+                    "level": entry.node.level,
+                    "grade": int(entry.node.grade),
+                    "fidelity": entry.node.fidelity,
+                    "vec": packed[addr][0],
+                    "dim": packed[addr][1],
+                    "parent": entry.node.parent,
+                    "children": list(entry.node.children),
+                    "n_merged": entry.node.n_merged,
+                    "span": list(entry.node.span),
+                    "keys": list(entry.node.keys),
+                    "text_ref": entry.node.text_ref,
+                    "raw_refs": list(entry.node.raw_refs),
+                    "retrieval_strength": entry.retrieval_strength,
+                    "last_decay_tick": entry.last_decay_tick,
+                    "occurrences": entry.occurrences,
+                    "last_used_tick": entry.stat.last_used_tick,
+                    "use_count": entry.stat.use_count,
+                    "hit_count": entry.stat.hit_count,
+                    "miss_count": entry.stat.miss_count,
+                }
+                for addr, entry in self._entries.items()
+            ],
+            # Order matters: a chain is rebuilt link by link and AliasTable
+            # refuses to re-point an address that already forwards, so the
+            # links have to go back in the order they were made.
+            "aliases": [
+                {"old": old, "new": new, "cosine": self._step_cosine.get(old, 1.0)}
+                for old, new in self.alias.links.items()
+            ],
+            "counters": dict(self.counters),
+            "children_order": {a: list(c) for a, c in self._children.items() if c},
+        }
+
+    @classmethod
+    def restore(cls, snap: dict, *, dim: int | None = None) -> MemoryTree:
+        """Rebuild a tree from ``snapshot``. Never goes through insert().
+
+        ``insert`` dedupes, re-derives addresses and re-parents, all of
+        which are right when something is being remembered and wrong when
+        it is being reloaded: a store restored through it would quietly
+        differ from the one that was saved. So the entries are placed
+        directly and the indexes rebuilt from them.
+        """
+        tree = cls(beam=int(snap.get("beam", 4)),
+                   decay_per_tick=float(snap.get("decay_per_tick", DECAY_PER_TICK)))
+        tree.comparisons = int(snap.get("comparisons", 0))
+
+        for row in snap["nodes"]:
+            grade = Grade(row["grade"])
+            vec = _unpack_vector(row["vec"], grade, int(row["dim"]))
+            if dim is not None and vec.size != dim:
+                raise ValueError(
+                    f"stored vectors are {vec.size}-dimensional but this "
+                    f"runtime is configured for {dim}; the embedder that "
+                    "wrote this store is not the one reading it"
+                )
+            node = MemoryNode(
+                addr=row["addr"],
+                region=Region(row["region"]),
+                level=int(row["level"]),
+                vec=vec,
+                grade=grade,
+                fidelity=float(row["fidelity"]),
+                parent=row["parent"],
+                children=tuple(row["children"]),
+                n_merged=int(row["n_merged"]),
+                span=(int(row["span"][0]), int(row["span"][1])),
+                keys=tuple(row["keys"]),
+                text_ref=row.get("text_ref", ""),
+                raw_refs=tuple(row.get("raw_refs", ())),
+            )
+            stat = NodeStat(
+                last_used_tick=int(row["last_used_tick"]),
+                use_count=int(row["use_count"]),
+                hit_count=int(row["hit_count"]),
+                miss_count=int(row["miss_count"]),
+            )
+            tree._entries[node.addr] = _Entry(
+                node=node, stat=stat,
+                retrieval_strength=float(row["retrieval_strength"]),
+                last_decay_tick=int(row["last_decay_tick"]),
+                occurrences=int(row["occurrences"]),
+            )
+            tree._by_region[node.region].add(node.addr)
+            for key in node.keys:
+                tree._by_key.setdefault(key, set()).add(node.addr)
+
+        for addr, kids in snap.get("children_order", {}).items():
+            tree._children[addr] = list(kids)
+
+        for link in snap.get("aliases", ()):
+            tree.alias.add(link["old"], link["new"])
+            tree._step_cosine[link["old"]] = float(link.get("cosine", 1.0))
+
+        tree.counters = {a: int(n) for a, n in snap.get("counters", {}).items()}
+        return tree
 
     # ------------------------------------------------------------ inserting
 
