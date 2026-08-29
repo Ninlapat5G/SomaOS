@@ -61,6 +61,15 @@ from somaos.broker.regions import CoreSet, Trigger, TriggerKind, TriggerRegistry
 #: is enough for a persona and small enough not to crowd out experience.
 CORE_QUOTA_FRACTION = 10
 
+#: Traits the default quota must always fit, however small the store.
+#: A tenth of a device-sized store is one vector, and an identity of one
+#: trait is not an identity -- on the very hosts where "is this still the
+#: same agent" matters most, the fraction alone would have made a persona
+#: impossible to seed. Four is enough for a trait, a preference, a goal
+#: and a way of working; past that an application should say what it
+#: needs with ``core_quota_bytes``.
+MIN_CORE_TRAITS = 4
+
 #: How often the consolidation cycle runs, in ticks. Batched rather than
 #: per-observation because that is what it models: people rebuild the
 #: structure of what they know while asleep, not mid-conversation.
@@ -80,6 +89,7 @@ class SomaOS:
         navigator: Navigator | None = None,
         beam: int = 4,
         consolidate_every: int = DEFAULT_CONSOLIDATE_EVERY,
+        core_quota_bytes: int | None = None,
         tokens_of=structural_tokens,
         _restored: dict | None = None,
     ) -> None:
@@ -102,9 +112,8 @@ class SomaOS:
         restored = _restored or {}
         self.tree: MemoryTree = restored.get("tree") or MemoryTree(beam=beam)
         self.core: CoreSet = restored.get("core") or CoreSet(
-            quota_bytes=max(
-                self.embedder.dim * 4, store_budget_bytes // CORE_QUOTA_FRACTION
-            )
+            quota_bytes=int(core_quota_bytes) if core_quota_bytes is not None
+            else self.default_core_quota(store_budget_bytes, embedder.dim)
         )
         self.triggers: TriggerRegistry = restored.get("triggers") or TriggerRegistry()
         self.dilution = DilutionEngine(store_budget_bytes=self.store_budget_bytes)
@@ -118,6 +127,29 @@ class SomaOS:
         #: memory exists.
         self._topics: dict[str, str] = {}
         self._reindex_topics()
+
+    @staticmethod
+    def default_core_quota(store_budget_bytes: int, dim: int) -> int:
+        """Bytes reserved for identity when the caller does not say.
+
+        A share of the store, but never fewer than a handful of traits:
+        on a device-sized store the share alone comes to a single vector,
+        and an agent with one trait cannot meaningfully be "the same
+        agent" across a reload. Exposed rather than inlined so an
+        application can ask what it will get before it starts seeding.
+        """
+        per_trait = dim * 4
+        return max(per_trait * MIN_CORE_TRAITS,
+                   store_budget_bytes // CORE_QUOTA_FRACTION)
+
+    def identity_headroom(self) -> int:
+        """Bytes of identity still available. Zero means no more traits fit.
+
+        Seeding past the quota raises rather than diluting the persona
+        (N-06), so an application that seeds from configuration needs a
+        way to check first instead of catching.
+        """
+        return max(0, self.core.quota_bytes - self.core.used_bytes(self.tree))
 
     # ------------------------------------------------------------ internals
 
@@ -274,6 +306,7 @@ class SomaOS:
                 "recall_ops_budget": self.recall_ops_budget,
                 "embedder": repr(self.embedder),
                 "dim": self.embedder.dim,
+                "core_quota_bytes": self.core.quota_bytes,
                 **(meta or {}),
             },
         )
@@ -346,6 +379,12 @@ class SomaOS:
             "store_used_fraction": round(
                 self.tree.store_bytes() / self.store_budget_bytes, 4
             ),
+            # Non-zero means enforcement could not get the store under its
+            # budget -- everything dilutable is already at its floor. It is
+            # reported rather than swallowed because the honest answer is
+            # "this agent needs a bigger store", and an application can
+            # only act on that if it can see it.
+            "over_budget_bytes": self.dilution.shortfall(self.tree),
             "grades": self.tree.grade_histogram(),
             "identity": len(self.core.addresses()),
             "skills": len(self.tree.region_members(Region.SKILL)),

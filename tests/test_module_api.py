@@ -478,3 +478,72 @@ def test_a_retry_is_told_what_was_wrong():
     build(days=30, navigator=CallableNavigator(note)).recall(Cue.about("routine", tick=30))
     assert "error" not in seen[0]
     assert "error" in seen[1] and "teleport" in seen[1]["error"]
+
+
+# ------------------------------------- "is this still the same agent?"
+
+def test_an_agent_reloaded_after_heavy_pressure_is_still_itself():
+    """The guarantee the module is really selling.
+
+    Create an agent, give it a persona, run it until the store has
+    overflowed many times over, save, reload. Its identity must be intact,
+    at full precision, and still arrive in context on every recall without
+    being searched for.
+    """
+    import tempfile
+    from pathlib import Path
+
+    soma = SomaOS(store_budget_bytes=12_000, context_budget_tokens=256,
+                  recall_ops_budget=16)
+    soma.seed_identity(("careful", "asks-first"), level=CoreLevel.TRAIT,
+                       text_ref="asks before doing anything irreversible")
+    soma.seed_identity(("prefers", "thai"), level=CoreLevel.ADAPTATION,
+                       text_ref="prefers to talk in Thai")
+    identity = sorted(soma.core.addresses())
+
+    for day in range(400):
+        soma.remember(Observation.of("nin", "coffee", "morning",
+                                     tick=day, topic="routine"))
+        soma.remember(Observation.of("nin", "task%d" % day, "work",
+                                     tick=day, topic="work"))
+        soma.tick(day)
+
+    assert soma.stats()["forwarded_addresses"] > 100, "not enough pressure to matter"
+
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "agent.somaos"
+        soma.save(path)
+        again = SomaOS.load(path)
+
+    assert sorted(again.core.addresses()) == identity
+    assert {again.tree.get(a).grade.name for a in again.core.addresses()} == {"D0_EXACT"}
+    assert again.core.quota_bytes == soma.core.quota_bytes
+    assert again.stats() == soma.stats()
+
+    remembered = again.recall(Cue.about("routine", tick=400))
+    assert "asks before doing anything irreversible" in remembered.text_refs
+
+
+def test_a_small_brain_can_still_hold_a_persona():
+    """A tenth of a device-sized store is one vector, and an agent with a
+    single trait cannot meaningfully be "the same agent" across a reload."""
+    soma = SomaOS(store_budget_bytes=12_000)
+    for index in range(4):
+        soma.seed_identity(("trait%d" % index,), level=CoreLevel.TRAIT)
+    assert len(soma.core.addresses()) == 4
+
+
+def test_an_application_can_ask_how_much_identity_still_fits():
+    soma = SomaOS(store_budget_bytes=12_000)
+    room = soma.identity_headroom()
+    assert room == soma.core.quota_bytes
+    soma.seed_identity(("careful",), level=CoreLevel.TRAIT)
+    assert soma.identity_headroom() < room
+
+
+def test_the_identity_quota_can_be_set_by_the_application():
+    soma = SomaOS(store_budget_bytes=12_000, core_quota_bytes=16_384)
+    assert soma.core.quota_bytes == 16_384
+    for index in range(16):
+        soma.seed_identity(("trait%d" % index,), level=CoreLevel.TRAIT)
+    assert len(soma.core.addresses()) == 16

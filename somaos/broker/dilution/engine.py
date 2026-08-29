@@ -120,6 +120,9 @@ class DilutionEngine:
 
     store_budget_bytes: int
     log: list[DilutionEvent] = field(default_factory=list)
+    #: Bytes still over budget after the last ``enforce``. Non-zero means
+    #: enforcement ran out of moves, not that it has not run yet.
+    last_shortfall: int = 0
 
     def reserved_bytes(self, tree: MemoryTree) -> int:
         """Bytes held by regions that may never fade."""
@@ -159,6 +162,9 @@ class DilutionEngine:
                 except AddressCollision:
                     blocked.add(victim)
                     continue
+                if event is None:
+                    blocked.add(victim)
+                    continue
                 produced.append(event)
                 if not self._made_progress(tree, victim, before):
                     blocked.add(victim)
@@ -178,7 +184,21 @@ class DilutionEngine:
                 blocked.add(victim)
 
         self.log.extend(produced)
+        self.last_shortfall = self.shortfall(tree)
         return tuple(produced)
+
+    def shortfall(self, tree: MemoryTree) -> int:
+        """Bytes the store is over its budget. Zero when it fits.
+
+        Enforcement can run out of moves: everything dilutable may
+        already sit at its floor, or the remaining candidates may all be
+        content that exists at the rung below. Returning quietly in that
+        state left the store over budget with nothing saying so, which is
+        the one thing a knob called "brain size" must not do. Callers
+        should treat a non-zero value as "this agent needs a bigger store",
+        not as a transient.
+        """
+        return max(0, tree.store_bytes() - self.store_budget_bytes)
 
     @staticmethod
     def _made_progress(tree: MemoryTree, victim: str, bytes_before: int) -> bool:
@@ -250,7 +270,14 @@ class DilutionEngine:
 
     def _apply_rung(
         self, tree: MemoryTree, addr: str, grade: Grade, *, tick: int
-    ) -> DilutionEvent:
+    ) -> DilutionEvent | None:
+        """Take one node down one rung. ``None`` if the tree refused.
+
+        A refusal is not an error: it means this content already exists at
+        the grade below, so degrading into it would either be a no-op or
+        would take an address that forwards back here. The caller sets the
+        node aside for this sweep.
+        """
         node = tree.get(addr)
         new_vec = encode(np.asarray(node.vec, dtype=np.float32), grade)
         step = similarity(node.vec, new_vec)
@@ -272,17 +299,30 @@ class DilutionEngine:
         faded = replace(faded, fidelity=compose_fidelity(node.fidelity, step))
         strength = tree.retrieval_strength(addr, tick=tick)
         new_addr = tree.replace_node(addr, faded)
+
+        # Read back what the tree actually holds. ``replace_node`` has two
+        # legitimate refusals -- the re-encoded content already lives at
+        # this very address, or it lives at an address that forwards back
+        # here -- and both return the old address having changed nothing.
+        # Reporting ``faded`` regardless made the audit log say a memory
+        # had been degraded when it had not: the store then sat over
+        # budget with a log claiming it had been brought under. The log is
+        # the evidence for the whole dilution argument, so it records
+        # outcomes only.
+        actual = tree.get(new_addr)
+        if actual is None or (new_addr == addr and actual.grade is node.grade):
+            return None
         return DilutionEvent(
             tick=tick,
             addr_before=addr,
             addr_after=new_addr,
-            region=node.region.name,
+            region=actual.region.name,
             grade_before=node.grade.name,
-            grade_after=grade.name,
+            grade_after=actual.grade.name,
             fidelity_before=node.fidelity,
-            fidelity_after=faded.fidelity,
+            fidelity_after=actual.fidelity,
             bytes_before=node.nbytes,
-            bytes_after=faded.nbytes,
+            bytes_after=actual.nbytes,
             retrieval_strength=strength,
             reason="store_budget_bytes exceeded",
         )

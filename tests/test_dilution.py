@@ -346,3 +346,96 @@ def test_the_log_lets_you_follow_one_memory_down_the_ladder():
         addr = event.addr_after
     assert steps  # the coldest memory moved at least one rung
     assert [s[0] for s in steps[1:]] == [s[1] for s in steps[:-1]]
+
+
+# ------------------------------------------------ the log records outcomes
+
+def _pressured(*, budget: int, days: int = 400):
+    """An agent squeezed hard enough that enforcement runs out of moves."""
+    from somaos.broker import CoreLevel, Observation, SomaOS
+
+    soma = SomaOS(store_budget_bytes=budget, context_budget_tokens=256,
+                  recall_ops_budget=16)
+    soma.seed_identity(("careful",), level=CoreLevel.TRAIT)
+    for day in range(days):
+        soma.remember(Observation.of("nin", "coffee", "morning",
+                                     tick=day, topic="routine"))
+        soma.remember(Observation.of("nin", "task%d" % day, "work",
+                                     tick=day, topic="work"))
+        soma.tick(day)
+    return soma
+
+
+def test_every_event_matches_the_tree_at_the_moment_it_is_emitted():
+    """The log is the evidence for the dilution argument, so it must not
+    record a degradation that did not happen.
+
+    It did. ``replace_node`` has two legitimate refusals -- the re-encoded
+    content already sits at this address, or at one that forwards back
+    here -- and both return the old address unchanged. ``_apply_rung``
+    reported its intent regardless, so a store could sit over budget with
+    a log claiming it had been brought under.
+    """
+    from somaos.broker import CoreLevel, Observation, SomaOS
+
+    soma = SomaOS(store_budget_bytes=12_000, context_budget_tokens=256,
+                  recall_ops_budget=16)
+    soma.seed_identity(("careful",), level=CoreLevel.TRAIT)
+
+    checked = 0
+    for day in range(200):
+        soma.remember(Observation.of("nin", "coffee", "morning",
+                                     tick=day, topic="routine"))
+        soma.remember(Observation.of("nin", "task%d" % day, "work",
+                                     tick=day, topic="work"))
+        seen = len(soma.dilution.log)
+        soma.tick(day)
+        for event in soma.dilution.log[seen:]:
+            node = soma.tree.get(event.addr_after)
+            if node is None or event.grade_after in ("D3_MERGED", "D4_COUNTER"):
+                continue                      # dissolved: nothing left to check
+            checked += 1
+            assert node.grade.name == event.grade_after
+            assert node.nbytes == event.bytes_after
+
+    assert checked > 0, "no dilution happened, so nothing was verified"
+
+
+def test_a_refused_dilution_produces_no_event():
+    soma = _pressured(budget=12_000)
+    before = soma.tree.store_bytes()
+    events = soma.dilution.enforce(soma.tree, tick=400)
+    if soma.tree.store_bytes() == before:
+        assert events == (), "nothing changed, so nothing should be reported"
+
+
+def test_running_out_of_room_is_reported_not_swallowed():
+    """A knob called "brain size" may not quietly fail to hold.
+
+    Enforcement can genuinely run out of moves. What it must not do is
+    return as though it succeeded, leaving the store over budget with
+    nothing anywhere saying so.
+    """
+    soma = _pressured(budget=12_000)
+    over = soma.stats()["over_budget_bytes"]
+    if soma.tree.store_bytes() > soma.store_budget_bytes:
+        assert over > 0
+        assert over == soma.tree.store_bytes() - soma.store_budget_bytes
+    else:
+        assert over == 0
+
+
+def test_a_store_with_room_reports_no_shortfall():
+    soma = _pressured(budget=2_000_000, days=100)
+    assert soma.stats()["over_budget_bytes"] == 0
+    assert soma.dilution.shortfall(soma.tree) == 0
+
+
+def test_identity_never_fades_however_hard_the_store_is_squeezed():
+    """The guarantee an application is really buying: same agent after a
+    reload, whatever the memory has been through (N-06)."""
+    soma = _pressured(budget=12_000)
+    assert soma.stats()["identity"] > 0
+    for addr in soma.core.addresses():
+        assert soma.tree.get(addr).grade.name == "D0_EXACT"
+        assert soma.tree.get(addr).fidelity == 1.0
