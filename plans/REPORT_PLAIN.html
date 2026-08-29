@@ -8,423 +8,559 @@
     color-scheme: light;
     --ground:      #F3F1EC;
     --surface:     #FCFCFB;
-    --surface-2:   #EDEAE3;
+    --surface-2:   #EAE7DF;
     --line:        #D8D3C8;
     --line-soft:   #E5E1D8;
     --ink:         #1A1917;
-    --ink-2:       #52514E;
+    --ink-2:       #504F4B;
     --ink-3:       #7C7A73;
     --series-1:    #2a78d6;
     --series-2:    #eb6834;
-    --good:        #1baf7a;
+    --ok:          #1baf7a;
     --sans: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --ground:    #141412;
-      --surface:   #1D1D1A;
-      --surface-2: #262622;
-      --line:      #3A3A34;
-      --line-soft: #2C2C27;
-      --ink:       #F2F0EA;
-      --ink-2:     #C3C2B7;
-      --ink-3:     #908E85;
-      --series-1:  #3987e5;
-      --series-2:  #d95926;
-      --good:      #199e70;
+      --ground: #141412; --surface: #1D1D1A; --surface-2: #292923;
+      --line: #3A3A34; --line-soft: #2C2C27;
+      --ink: #F2F0EA; --ink-2: #C6C4BA; --ink-3: #918F86;
+      --series-1: #3987e5; --series-2: #d95926; --ok: #199e70;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --ground:    #141412;
-    --surface:   #1D1D1A;
-    --surface-2: #262622;
-    --line:      #3A3A34;
-    --line-soft: #2C2C27;
-    --ink:       #F2F0EA;
-    --ink-2:     #C3C2B7;
-    --ink-3:     #908E85;
-    --series-1:  #3987e5;
-    --series-2:  #d95926;
-    --good:      #199e70;
+    --ground: #141412; --surface: #1D1D1A; --surface-2: #292923;
+    --line: #3A3A34; --line-soft: #2C2C27;
+    --ink: #F2F0EA; --ink-2: #C6C4BA; --ink-3: #918F86;
+    --series-1: #3987e5; --series-2: #d95926; --ok: #199e70;
   }
 
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--ground); color: var(--ink);
-    font-family: var(--sans); font-size: 17px; line-height: 1.85;
+    font-family: var(--sans); font-size: 17.5px; line-height: 1.9;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 1.4rem 6rem; }
+  .wrap { max-width: 43rem; margin: 0 auto; padding: 0 1.4rem 7rem; }
 
-  header { padding: 4rem 0 2.5rem; }
-  .kicker {
-    font-family: var(--mono); font-size: .75rem; letter-spacing: .16em;
-    text-transform: uppercase; color: var(--ink-3); margin: 0 0 1.2rem;
-  }
-  h1 {
-    font-size: clamp(2.1rem, 6vw, 3.2rem); line-height: 1.12; font-weight: 700;
-    letter-spacing: -.02em; margin: 0 0 1.2rem; text-wrap: balance;
-  }
-  .dek { font-size: 1.22rem; color: var(--ink-2); margin: 0; max-width: 34rem; }
+  header { padding: 4.5rem 0 2rem; }
+  .kicker { font-family: var(--mono); font-size: .75rem; letter-spacing: .16em;
+            text-transform: uppercase; color: var(--ink-3); margin: 0 0 1.2rem; }
+  h1 { font-size: clamp(2.2rem, 6.5vw, 3.4rem); line-height: 1.1; font-weight: 700;
+       letter-spacing: -.025em; margin: 0 0 1.2rem; text-wrap: balance; }
+  .dek { font-size: 1.24rem; color: var(--ink-2); margin: 0; }
 
-  h2 {
-    font-size: 1.5rem; font-weight: 600; margin: 3.5rem 0 .8rem;
-    letter-spacing: -.01em; text-wrap: balance;
-  }
-  h3 { font-size: 1.08rem; font-weight: 600; margin: 2.2rem 0 .5rem; }
-  p { margin: 0 0 1.1rem; }
-  .lead { font-size: 1.08rem; color: var(--ink-2); }
+  hr { border: 0; height: 1px; background: var(--line); margin: 3rem 0 0; }
+
+  h2 { font-size: 1.62rem; font-weight: 700; margin: 3.4rem 0 1rem;
+       letter-spacing: -.015em; text-wrap: balance; line-height: 1.3; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 2rem 0 .4rem; }
+  p { margin: 0 0 1.15rem; }
   strong { font-weight: 600; }
-  em.q { font-style: normal; color: var(--ink-2); }
 
-  hr {
-    border: 0; height: 1px; background: var(--line);
-    margin: 3.5rem 0 0;
+  /* the repeating question block */
+  .q {
+    margin: 3.4rem 0 0;
+    border-top: 3px solid var(--ink);
+    padding-top: 1.4rem;
   }
-
-  .pull {
-    font-size: 1.3rem; line-height: 1.55; font-weight: 500;
-    border-left: 3px solid var(--series-1);
-    padding: .3rem 0 .3rem 1.3rem; margin: 2.2rem 0; color: var(--ink);
-    text-wrap: balance;
+  .q > .num {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .14em;
+    color: var(--ink-3); text-transform: uppercase; display: block; margin-bottom: .6rem;
   }
+  .q > h2 { margin-top: 0; }
 
-  .card {
+  .why {
     background: var(--surface); border: 1px solid var(--line-soft);
-    border-radius: 4px; padding: 1.4rem 1.5rem; margin: 2rem 0;
+    border-left: 3px solid var(--series-1);
+    border-radius: 0 4px 4px 0; padding: 1.1rem 1.35rem; margin: 1.4rem 0 1.8rem;
   }
-  .card p:last-child { margin-bottom: 0; }
-  .card .label {
-    font-family: var(--mono); font-size: .72rem; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: .5rem;
-  }
+  .why b { display: block; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase;
+           color: var(--series-1); margin-bottom: .35rem; font-weight: 600; }
+  .why p { margin: 0; font-size: 1rem; color: var(--ink-2); line-height: 1.75; }
 
-  .hero {
-    display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap;
-    margin: 2.2rem 0;
-    padding: 1.6rem 1.6rem 1.4rem;
-    background: var(--surface); border: 1px solid var(--line-soft); border-radius: 4px;
-  }
-  .hero .n {
-    font-size: clamp(3rem, 11vw, 4.6rem); font-weight: 700; line-height: .9;
-    letter-spacing: -.04em; color: var(--series-1);
-    font-variant-numeric: tabular-nums;
-  }
-  .hero .t { flex: 1 1 14rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.6; }
-  .hero .t b { color: var(--ink); font-weight: 600; }
+  .how { font-size: 1rem; color: var(--ink-2); }
+  .how em { font-style: normal; color: var(--ink); font-weight: 500; }
 
-  figure {
-    margin: 2.2rem 0; background: var(--surface);
-    border: 1px solid var(--line-soft); border-radius: 4px;
-    padding: 1.4rem 1.2rem 1rem; overflow-x: auto;
+  .verdict {
+    display: flex; gap: .9rem; align-items: flex-start;
+    background: var(--surface-2); border-radius: 4px;
+    padding: 1rem 1.2rem; margin: 1.6rem 0 0; font-size: 1.02rem;
   }
+  .verdict .mark { font-size: 1.2rem; line-height: 1.5; flex: 0 0 auto; }
+  .verdict p { margin: 0; }
+  .verdict.no { border-left: 3px solid var(--series-2); }
+
+  figure { margin: 1.8rem 0; background: var(--surface);
+           border: 1px solid var(--line-soft); border-radius: 4px;
+           padding: 1.3rem 1.1rem 1rem; overflow-x: auto; }
   figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
-  figcaption {
-    margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--line-soft);
-    font-size: .92rem; color: var(--ink-2); line-height: 1.65;
-  }
-  .legend {
-    display: flex; gap: 1.4rem; flex-wrap: wrap;
-    font-size: .88rem; color: var(--ink-2); margin-bottom: .9rem; padding-left: .3rem;
-  }
+  figcaption { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--line-soft);
+               font-size: .92rem; color: var(--ink-2); line-height: 1.7; }
+  .legend { display: flex; gap: 1.3rem; flex-wrap: wrap; font-size: .88rem;
+            color: var(--ink-2); margin-bottom: .8rem; padding-left: .2rem; }
   .legend span { display: inline-flex; align-items: center; gap: .45rem; }
-  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .sw { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
   .ax { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
-  .pt { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
-  .ttl { font-family: var(--sans); font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+  .pt { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-2); }
+  .th { font-family: var(--sans); font-size: 12px; font-weight: 600; fill: var(--ink); }
 
-  ul { padding-left: 1.3rem; margin: 1rem 0 1.4rem; }
-  li { margin-bottom: .6rem; }
+  .scroll { overflow-x: auto; margin: 1.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .97rem;
+          background: var(--surface); min-width: 22rem; }
+  th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  thead th { font-size: .82rem; color: var(--ink-3); font-weight: 500;
+             border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  td b { color: var(--series-1); }
+
+  .big {
+    display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1.5rem 1.5rem 1.3rem; margin: 1.8rem 0;
+  }
+  .big .n { font-size: clamp(2.8rem, 10vw, 4.2rem); font-weight: 700; line-height: .9;
+            letter-spacing: -.04em; color: var(--series-1); font-variant-numeric: tabular-nums; }
+  .big .t { flex: 1 1 13rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.65; }
+  .big .t b { color: var(--ink); font-weight: 600; }
+
+  ul { padding-left: 1.35rem; margin: 1rem 0 1.4rem; }
+  li { margin-bottom: .7rem; }
   li::marker { color: var(--ink-3); }
 
-  .scroll { overflow-x: auto; margin: 1.6rem 0; }
-  table { width: 100%; border-collapse: collapse; font-size: .95rem; min-width: 26rem; }
-  th, td { padding: .55rem .7rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
-  thead th { font-size: .8rem; color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line); }
-  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-  tbody tr:last-child td { border-bottom: none; }
-
-  footer {
-    margin-top: 4rem; padding-top: 1.6rem; border-top: 1px solid var(--line);
-    font-size: .9rem; color: var(--ink-3); line-height: 1.8;
-  }
-  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2); padding: .1em .35em; border-radius: 3px; }
-  a { color: var(--series-1); text-underline-offset: 2px; }
-  a:focus-visible { outline: 2px solid var(--series-1); outline-offset: 3px; border-radius: 2px; }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+           font-size: .9rem; color: var(--ink-3); line-height: 1.85; }
+  code { font-family: var(--mono); font-size: .85em; background: var(--surface-2);
+         padding: .1em .35em; border-radius: 3px; }
 </style>
 
 <div class="wrap">
 
 <header>
-  <p class="kicker">SomaOS · รายงานความคืบหน้า · 28 ส.ค. 2026</p>
+  <p class="kicker">SomaOS · รายงานความคืบหน้า · 29 ส.ค. 2026</p>
   <h1>ความจำของ AI ที่ลืมแบบคน</h1>
   <p class="dek">
-    เราสร้างระบบความจำที่ <strong>ไม่ลบอะไรทิ้งเลย</strong> แล้ววัดผลได้ว่ามันลืมเหมือนคนจริง —
-    จำรายละเอียดไม่ได้ แต่ยังรู้ว่าเรื่องนั้นเกี่ยวกับอะไร
+    เราสร้างระบบความจำที่ไม่ลบอะไรทิ้งเลย แล้ววัดผลได้ว่ามันลืมเหมือนคนจริง ๆ
+    รายงานนี้เรียงตาม <strong>คำถาม</strong> ไม่ใช่ตามการทดลอง — แต่ละหัวข้อจะบอกก่อนว่า
+    คำถามนั้นสำคัญกับโปรเจกต์ยังไง แล้วค่อยเล่าว่าทดสอบยังไงและได้อะไร
   </p>
 </header>
 
 <hr>
 
-<h2>ปัญหาคืออะไร</h2>
+<h2>เรากำลังแก้ปัญหาอะไร</h2>
 
-<p class="lead">
-  AI ทุกวันนี้จำอะไรไม่ได้นานครับ มันมี “ที่ว่างสำหรับคิด” จำกัดมาก
-  เหมือนโต๊ะทำงานเล็ก ๆ ที่วางของได้ไม่กี่ชิ้น พอมีเรื่องใหม่เข้ามา ของเก่าก็ต้องออกจากโต๊ะ
+<p>
+  ลองนึกภาพผู้ช่วยที่คุณคุยด้วยทุกวัน มันมี <strong>“โต๊ะทำงาน”</strong> เล็ก ๆ ที่วางของได้ไม่กี่ชิ้น
+  ทุกอย่างที่มันจะใช้คิดต้องอยู่บนโต๊ะนี้ พอมีเรื่องใหม่เข้ามา ของเก่าก็ต้องถูกยกออก
 </p>
 
 <p>
-  วิธีที่ใช้กันทั่วไปตอนนี้คือ <strong>เอาของเก่าไปกองไว้ในโกดัง</strong> แล้วเวลาต้องใช้ก็ไปค้นเอา
-  ฟังดูดี แต่มีปัญหาสองอย่าง
+  วิธีที่ใช้กันทั่วไปตอนนี้คือเอาของเก่าไปกองไว้ใน <strong>“โกดัง”</strong> แล้วเวลาจะใช้ก็ไปค้นเอา
+  ฟังดูโอเค แต่มีปัญหาสองข้อ:
 </p>
 
 <ul>
-  <li><strong>พอโกดังเต็ม ก็ต้องทิ้งของ</strong> — และของที่ทิ้งไปแล้วหายถาวร</li>
+  <li><strong>พอโกดังเต็ม ก็ต้องทิ้งของ</strong> — และของที่ทิ้งแล้วหายถาวร</li>
   <li><strong>ทุกครั้งที่จะนึกอะไร ต้องเดินดูทั้งโกดัง</strong> — ยิ่งจำเยอะ ยิ่งช้า</li>
 </ul>
 
 <p>
-  คนไม่ได้ทำแบบนั้น คุณจำไม่ได้แล้วว่ามื้อเที่ยงวันอังคารที่แล้วกินอะไร
-  แต่ถ้าถามว่า <em class="q">“ช่วงนั้นชีวิตเป็นยังไง”</em> คุณตอบได้ทันที
-  <strong>รายละเอียดหายไป แต่แก่นยังอยู่</strong> — และไม่มีวันไหนที่ความทรงจำถูก “ลบ” จริง ๆ
+  คนไม่ได้เป็นแบบนั้น คุณจำไม่ได้แล้วว่ามื้อเที่ยงวันอังคารที่แล้วกินอะไร
+  แต่ถ้าถามว่า <strong>“ช่วงนั้นชีวิตเป็นยังไง”</strong> คุณตอบได้ทันที
+  รายละเอียดหายไป แต่แก่นเรื่องยังอยู่ — และไม่มีวันไหนที่ความทรงจำถูกลบทิ้งจริง ๆ
 </p>
+
+<p>
+  <strong>เราเลยลองสร้างความจำแบบหลังดู</strong> ทุกอย่างที่เจอถูกเก็บไว้หมด ไม่มีการทิ้ง
+  แต่ของที่ไม่ค่อยได้ใช้จะค่อย ๆ “จาง” ลงเรื่อย ๆ จนเหลือแค่เค้าโครง
+</p>
+
+<p class="how">
+  รายงานนี้ตอบ <em>6 คำถาม</em> ที่ต้องตอบให้ได้ ถ้าจะบอกว่าไอเดียนี้ใช้ได้จริง
+</p>
+
+<!-- ============ 1 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 1</span>
+  <h2>ถ้าที่เก็บเต็มขึ้นมา จะเกิดอะไรขึ้น</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      นี่คือหัวใจของทั้งโปรเจกต์ ถ้าที่เก็บเต็มแล้วระบบเสียทั้งรายละเอียด<em>และ</em>แก่นเรื่องไปพร้อมกัน
+      แปลว่าเราแค่สร้างโกดังที่ทิ้งของช้ากว่าเดิม ไม่ได้ต่างจากของเดิมเลย
+      ต้องเห็นให้ได้ว่ารายละเอียดหายแต่แก่นอยู่ ถึงจะเรียกว่าสำเร็จ
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — สร้างโลกจำลองให้ผู้ช่วยใช้ชีวิตอยู่ 200 วัน มีทั้งกิจวัตรประจำวัน
+    เรื่องจรที่เกิดครั้งเดียว และช่วงเวลาที่มีเรื่องเด่นต่างกัน จากนั้นบีบที่เก็บให้เล็กลงเรื่อย ๆ
+    40 เท่า แล้วถามคำถามสองแบบ: <em>“วันนั้นเกิดอะไรขึ้นบ้าง”</em> (รายละเอียด) กับ
+    <em>“ช่วงนั้นเกี่ยวกับเรื่องอะไร”</em> (แก่น)
+  </p>
+
+  <figure>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร (แก่น)</span>
+      <span><i class="sw" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
+    </div>
+    <svg viewBox="0 0 640 250" role="img" aria-label="เปรียบเทียบสองระบบ: เมื่อบีบที่เก็บเล็กลง 40 เท่า ระบบของเรายังจำแก่นได้เกือบเต็มตลอด ขณะที่รายละเอียดค่อย ๆ หาย ส่วนวิธีทั่วไปเสียทั้งสองอย่าง">
+      <text class="th" x="14" y="16">ระบบของเรา</text>
+      <text class="th" x="344" y="16">วิธีที่ใช้กันทั่วไป</text>
+      <g stroke="currentColor" stroke-opacity=".12">
+        <line x1="48" y1="36" x2="294" y2="36"/><line x1="48" y1="106" x2="294" y2="106"/><line x1="48" y1="176" x2="294" y2="176"/>
+        <line x1="378" y1="36" x2="624" y2="36"/><line x1="378" y1="106" x2="624" y2="106"/><line x1="378" y1="176" x2="624" y2="176"/>
+      </g>
+      <text class="ax" x="42" y="40" text-anchor="end">ตอบถูกหมด</text>
+      <text class="ax" x="42" y="180" text-anchor="end">ตอบไม่ได้</text>
+
+      <polyline fill="none" stroke="var(--series-1)" stroke-width="2.4" stroke-linejoin="round"
+        points="48,36.7 110,36.7 172,36.7 233,36.7 294,38.2"/>
+      <polyline fill="none" stroke="var(--series-2)" stroke-width="2.4" stroke-linejoin="round"
+        points="48,36 110,37.8 172,67 233,116 294,150"/>
+      <g fill="var(--series-1)"><circle cx="48" cy="36.7" r="3.6"/><circle cx="294" cy="38.2" r="3.6"/></g>
+      <g fill="var(--series-2)"><circle cx="48" cy="36" r="3.6"/><circle cx="294" cy="150" r="3.6"/></g>
+      <text class="pt" x="288" y="30" text-anchor="end" fill="var(--series-1)">98%</text>
+      <text class="pt" x="288" y="166" text-anchor="end" fill="var(--series-2)">18%</text>
+
+      <polyline fill="none" stroke="var(--series-1)" stroke-width="2.4" stroke-linejoin="round"
+        points="378,62 440,54 502,38 563,39 624,59"/>
+      <polyline fill="none" stroke="var(--series-2)" stroke-width="2.4" stroke-linejoin="round"
+        points="378,36 440,71 502,107 563,134 624,167"/>
+      <g fill="var(--series-1)"><circle cx="378" cy="62" r="3.6"/><circle cx="624" cy="59" r="3.6"/></g>
+      <g fill="var(--series-2)"><circle cx="378" cy="36" r="3.6"/><circle cx="624" cy="167" r="3.6"/></g>
+      <text class="pt" x="618" y="52" text-anchor="end" fill="var(--series-1)">83%</text>
+      <text class="pt" x="618" y="182" text-anchor="end" fill="var(--series-2)">5%</text>
+
+      <g stroke="currentColor" stroke-opacity=".28">
+        <line x1="48" y1="176" x2="294" y2="176"/><line x1="378" y1="176" x2="624" y2="176"/>
+      </g>
+      <text class="ax" x="48" y="196">ที่เก็บใหญ่</text>
+      <text class="ax" x="294" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
+      <text class="ax" x="378" y="196">ที่เก็บใหญ่</text>
+      <text class="ax" x="624" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
+      <text class="ax" x="48" y="228">เฉลี่ยจากการทดลอง 3 ครั้ง · ยิ่งไปทางขวา ที่เก็บยิ่งเล็ก</text>
+    </svg>
+    <figcaption>
+      เส้นน้ำเงินของเรา <strong>แบนราบเกือบตลอด</strong> — บีบที่เก็บเล็กลง 40 เท่า มันก็ยังรู้ว่า
+      เรื่องนั้นเกี่ยวกับอะไร ขณะที่รายละเอียดค่อย ๆ หายไป ส่วนวิธีทั่วไปเสียทั้งสองอย่างพร้อมกัน
+    </figcaption>
+  </figure>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — นี่คือความต่างระหว่าง <em>“ลืมรายละเอียด”</em> กับ <em>“ของหาย”</em>
+    และเป็นสิ่งที่ทั้งโปรเจกต์พยายามทำให้เกิด</p>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 2</span>
+  <h2>ผู้ช่วยต้องใช้พื้นที่บนโต๊ะเท่าไหร่</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      พื้นที่บนโต๊ะคือส่วนที่<strong>เสียเงินจริง</strong> ทุกครั้งที่ผู้ช่วยคิดอะไรสักอย่าง
+      ยิ่งวางของเยอะ ยิ่งจ่ายแพงและยิ่งช้า ถ้าระบบเราตอบดีขึ้นแต่ต้องวางของเต็มโต๊ะเหมือนเดิม
+      ก็ไม่ได้ช่วยอะไร ต้องตอบดีกว่า<em>และ</em>ใช้ที่น้อยกว่า
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — ให้ที่เก็บเท่ากันทุกระบบ แล้วค่อย ๆ ลดขนาดโต๊ะลง
+    ดูว่าใครยังตอบได้ดีที่พื้นที่เท่าไหร่
+  </p>
+
+  <div class="big">
+    <span class="n">16×</span>
+    <span class="t">
+      ระบบของเราตอบได้ดีกว่า <b>โดยใช้พื้นที่บนโต๊ะน้อยกว่า 16 เท่า</b><br>
+      ที่พื้นที่ขนาดเล็กที่สุดที่ลอง มันตอบถูก 99% ส่วนวิธีทั่วไปแม้ให้พื้นที่มากกว่า 16 เท่า
+      ก็ยังตอบรายละเอียดได้แค่ 76%
+    </span>
+  </div>
+
+  <p>
+    และที่น่าสนใจกว่านั้น: <strong>ให้พื้นที่เพิ่มไปมันก็ไม่เอา</strong>
+    ระบบของเราหยิบมาแค่ประมาณครึ่งเดียวของที่ให้ ส่วนวิธีทั่วไปวางเต็มทุกครั้งที่มีให้
+    — ความต่างระหว่าง <em>“หยิบมาเท่าที่ต้องใช้”</em> กับ <em>“ยัดมาให้มากที่สุดเผื่อไว้”</em>
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — แปลว่าใช้งานจริงจะถูกกว่าและเร็วกว่าอย่างมีนัยสำคัญ</p>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 3</span>
+  <h2>ยิ่งจำเยอะ จะยิ่งช้าลงไหม</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      เราอยากให้ผู้ช่วยจำได้ไม่สิ้นสุด แต่ถ้ายิ่งจำเยอะแล้วยิ่งช้าลงเรื่อย ๆ
+      ความจำระยะยาวก็ใช้ไม่ได้จริง — พอผ่านไปหนึ่งปีมันจะช้าจนไม่มีใครทน
+      <strong>นี่คือข้อที่ตัดสินว่าไอเดียนี้ขยายได้หรือไม่</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — เพิ่มจำนวนความทรงจำจาก 280 ชิ้นเป็น 2,240 ชิ้น
+    แล้วนับว่าการนึกออกหนึ่งครั้ง ระบบต้อง “หยิบขึ้นมาดู” กี่ชิ้น
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>ความทรงจำทั้งหมด</th><th class="n">วิธีทั่วไป<br><small>ต้องดูกี่ชิ้น</small></th><th class="n">ระบบของเรา</th></tr></thead>
+      <tbody>
+        <tr><td>280 ชิ้น</td><td class="n">157</td><td class="n"><b>47</b></td></tr>
+        <tr><td>560 ชิ้น</td><td class="n">307</td><td class="n"><b>84</b></td></tr>
+        <tr><td>1,120 ชิ้น</td><td class="n">586</td><td class="n"><b>150</b></td></tr>
+        <tr><td>2,240 ชิ้น</td><td class="n">1,192</td><td class="n"><b>247</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    วิธีทั่วไปโตแบบ<strong>ตรงไปตรงมา</strong> — จำมากขึ้นสองเท่า ก็ต้องดูมากขึ้นสองเท่า
+    ระบบเราโตช้ากว่านั้นชัดเจน แต่<strong>ยังไม่ช้าเท่าที่เราตั้งเป้าไว้เอง</strong>
+  </p>
+
+  <h3>และเจอเรื่องที่ไม่คาดคิด</h3>
+  <p>
+    ต้นทุนส่วนใหญ่ไม่ได้มาจากขนาดความจำ แต่มาจาก <strong>“พยายามนึกแค่ไหน”</strong> ซึ่งเป็นปุ่มที่หมุนได้:
+  </p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>พยายามนึก</th><th class="n">ต้องดูกี่ชิ้น</th><th class="n">จำแก่นได้</th><th class="n">จำรายละเอียดได้</th></tr></thead>
+      <tbody>
+        <tr><td>นิดเดียว (4 ก้าว)</td><td class="n"><b>90</b></td><td class="n"><b>98%</b></td><td class="n">74%</td></tr>
+        <tr><td>เต็มที่ (32 ก้าว)</td><td class="n">150</td><td class="n">98%</td><td class="n"><b>96%</b></td></tr>
+        <tr><td><em>เทียบ: ค้นทั้งโกดัง</em></td><td class="n">586</td><td class="n">—</td><td class="n">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>แก่นเรื่องมาทันทีแทบไม่ต้องพยายาม รายละเอียดคือสิ่งที่ความพยายามซื้อมา</strong>
+    — ตรงกับความรู้สึกตอนคนนึกอะไรไม่ออก เรารู้คร่าว ๆ ทันที แต่ต้องนึกอยู่พักหนึ่งกว่าจะได้รายละเอียด
+  </p>
+
+  <div class="verdict no">
+    <span class="mark">⚠️</span>
+    <p><strong>ผ่านครึ่งเดียว</strong> — เร็วกว่าวิธีเดิม 4–6 เท่าจริง แต่<strong>ยังไม่ถึงเป้าที่เราตั้งไว้เอง</strong>
+    ต้องตัดสินก่อนไปต่อว่า จะแก้โครงสร้างให้ถึง หรือยอมรับว่าเป้าที่ตั้งไว้ไม่สมเหตุสมผลตั้งแต่แรก</p>
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 4</span>
+  <h2>มันจำ “นิสัย” ได้เองไหม</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      เป้าหมายระยะยาวคือผู้ช่วยที่<strong>มีตัวตนของตัวเอง</strong> — รู้ว่าเจ้าของชอบอะไร ทำอะไรเป็นประจำ
+      ถ้าต้องมานั่งบอกมันทีละอย่างว่า “นี่คือนิสัยของฉัน” ก็ไม่ใช่ความจำ มันคือการตั้งค่า
+      <strong>มันต้องสังเกตเอาเองได้</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — ในโลกจำลอง 200 วัน มีทั้งกิจวัตรที่เกิดซ้ำ ๆ (เช่น ตอนเช้าชงกาแฟแล้วเปิดอีเมล)
+    ปนกับเรื่องจรที่เกิดครั้งเดียวจำนวนมาก แล้วดูว่ามันแยกออกไหมว่าอันไหนเป็นนิสัย
+  </p>
+
+  <p>
+    ผลคือ <strong>มันสร้างนิสัยขึ้นมาเอง 2 อย่าง</strong> จากกิจวัตรที่เกิดซ้ำ 21 ครั้ง
+    และ<strong>ไม่ไปหยิบเรื่องจรมาปนเลยแม้แต่อันเดียว</strong>
+  </p>
+
+  <p class="how">
+    เกณฑ์ที่มันใช้แยกมี 2 ข้อ และต้องผ่านทั้งคู่: <em>เกิดบ่อยพอ</em> และ <em>เกิดซ้ำในรูปแบบเดิมจริง ๆ</em>
+    — ถ้าใช้แค่ข้อแรก หัวข้อที่ยุ่งจะกลายเป็นนิสัย ถ้าใช้แค่ข้อหลัง เรื่องเด่นเรื่องเดียวก็จะถูกยกเป็นนิสัย
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — และการที่มันจำนิสัยได้ ทำให้มันตอบ “คนนี้ปกติทำอะไร” ได้โดย<strong>ไม่ต้องไปค้นความทรงจำเลย</strong>
+    เหมือนที่คนไม่ต้องนึกย้อนทุกเช้าเพื่อจะรู้ว่าตัวเองชงกาแฟ</p>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 5</span>
+  <h2>มันลืมเหมือนคนจริง ๆ หรือแค่คล้าย</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      คำถามก่อนหน้าทั้งหมดถามว่า <em>“ระบบทำงานไหม”</em> ข้อนี้ถามอีกอย่าง —
+      <strong>“มันพังเหมือนที่คนพังไหม”</strong> ซึ่งยากกว่ามาก
+      งาน AI เรื่องความจำเกือบทุกเจ้าเคลมว่า “ได้แรงบันดาลใจจากสมองมนุษย์” แล้วจบแค่นั้น
+      ถ้าเราแสดงได้ว่ามันสร้าง<em>รูปแบบที่งานวิจัยบันทึกไว้จริง</em> นั่นคือคนละชั้นของข้ออ้าง
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — ในผู้ป่วยโรคความจำเสื่อมชนิดหนึ่ง มีรูปแบบที่ถูกบันทึกไว้ซ้ำ ๆ ในงานวิจัย:
+    ผู้ป่วยจะ<em>ลืมชื่อเฉพาะก่อนลืมชื่อหมวด</em> — พูดว่า “สัตว์” ได้อีกนาน หลังจากที่พูดว่า “ม้าลาย” ไม่ได้แล้ว
+    เราเลยบีบที่เก็บลงเรื่อย ๆ แล้วถามของชิ้นเดิมสามแบบ ตั้งคำถามให้มี 6 ตัวเลือกเท่ากันทุกระดับ
+    (เดาสุ่มได้ 17% เท่ากันหมด — เหมือนวิธีที่ใช้ทดสอบผู้ป่วยจริง)
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>ที่เก็บ</th><th class="n">“ตัวไหน”<br><small>เฉพาะเจาะจง</small></th><th class="n">“ของชนิดไหน”<br><small>ระดับกลาง</small></th><th class="n">“ตระกูลไหน”<br><small>หมวดกว้าง</small></th></tr></thead>
+      <tbody>
+        <tr><td>ยังพอมีที่</td><td class="n">100%</td><td class="n">100%</td><td class="n">100%</td></tr>
+        <tr><td>เริ่มตึง</td><td class="n">65%</td><td class="n"><b>81%</b></td><td class="n">100%</td></tr>
+        <tr><td>ตึงมาก</td><td class="n">39%</td><td class="n"><b>58%</b></td><td class="n">100%</td></tr>
+        <tr><td>แทบไม่เหลือ</td><td class="n">24%</td><td class="n"><b>43%</b></td><td class="n">100%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    <strong>สามระดับแยกจากกันชัด เรียงถูก และเสื่อมคนละอัตรา</strong> เหมือนที่วัดได้ในผู้ป่วยจริง
+    (ทดลองซ้ำ 5 ครั้ง ตัวเลขนิ่งมาก)
+  </p>
+
+  <h3>แต่ต้องพูดให้ชัดว่าอะไรพิสูจน์อะไร</h3>
+  <p>
+    ข้อที่ว่า “หมวดกว้างอยู่รอดกว่าเฉพาะเจาะจง” — <strong>อันนี้เราออกแบบใส่ไปเอง พิสูจน์อะไรไม่ได้</strong>
+  </p>
+  <p>
+    <strong>ส่วนที่ไม่ได้ออกแบบใส่ไปคือระดับกลาง</strong> ระบบไม่รู้จักคำว่า “สามระดับ” เลย
+    และตอนเริ่มต้นความจำมีแค่สองชั้น ชั้นกลางถูกสร้างขึ้นเองตอนที่ระบบ “จัดระเบียบตัวเอง”
+    โดยจับของที่คล้ายกันมากองรวมกัน — <strong>ไม่มีใครบอกมันว่าหมาจบตรงไหนแมวเริ่มตรงไหน</strong>
+  </p>
+  <p>
+    หลักฐานตรงที่สุดคือตอนที่ผมลืมสั่งให้มันจัดระเบียบตัวเอง ผลออกมาเป็น<strong>หน้าผาสองระดับ</strong>
+    (ระดับกลางเสื่อมทับเฉพาะเจาะจงเป๊ะ) พอให้มันสร้างชั้นกลางเอง สามระดับก็แยกออกจากกันทันที
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — เปลี่ยนสถานะโปรเจกต์จาก <em>“ได้แรงบันดาลใจจากงานวิจัย”</em>
+    เป็น <em>“สร้างรูปแบบที่งานวิจัยบันทึกไว้ได้”</em></p>
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section class="q">
+  <span class="num">คำถามที่ 6</span>
+  <h2>มันเข้าใจโครงสร้างของเรื่องเองได้ไหม</h2>
+
+  <div class="why">
+    <b>ทำไมคำถามนี้สำคัญ</b>
+    <p>
+      คำถามที่แล้วได้ผลตรงกับคน แต่มีข้อสงสัยค้างอยู่: <strong>สามระดับคือคำตอบ หรือแค่คำถามที่เราบังเอิญถาม?</strong>
+      ถ้าระบบทำได้แค่สามระดับตายตัว แปลว่าต้องมีคนไปบอกมันล่วงหน้าทุกครั้งว่างานนี้มีโครงสร้างกี่ชั้น
+      — ซึ่งก็ไม่ใช่ความจำที่ใช้ได้จริง <strong>มันต้องอ่านโครงสร้างออกมาจากสิ่งที่เห็นเอง</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <em>ทดสอบยังไง</em> — สร้างโลก 4 แบบที่ลึก 2, 3, 4 และ 5 ชั้น ขนาดพอ ๆ กัน
+    (เช่น 3 ชั้น = สัตว์ → หมา → หมาตัวนั้น · 4 ชั้น = สิ่งมีชีวิต → สัตว์ → หมา → หมาตัวนั้น)
+    แล้วดูว่าโครงสร้างที่ระบบสร้างขึ้นเองตามหรือไม่
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>โลกที่ให้</th><th class="n">ระบบแยกชั้นออกได้จริง</th><th>ผล</th></tr></thead>
+      <tbody>
+        <tr><td>ลึก 2 ชั้น</td><td class="n"><b>2 จาก 2</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 3 ชั้น</td><td class="n"><b>3 จาก 3</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 4 ชั้น</td><td class="n"><b>4 จาก 4</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 5 ชั้น</td><td class="n">4 จาก 5</td><td>สองชั้นล่างสุดกองรวมกัน</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    <strong>ระบบไม่ได้ถูกล็อกไว้ที่สามชั้น มันอ่านความลึกออกมาจากข้อมูลเอง</strong>
+    — แปลว่าไม่ต้องบอกล่วงหน้าว่างานนี้มีโครงสร้างแบบไหน
+  </p>
+
+  <p class="how">
+    เพดานอยู่ที่ประมาณ 4–5 ชั้น เพราะพอลึกเกินไป ของที่อยู่ติดกันจะเหมือนกันจนแยกไม่ออก
+    <strong>บันทึกไว้เป็นขีดจำกัดที่วัดได้ ไม่ได้เอามาเล่าเป็นความสำเร็จ</strong>
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน มีเพดาน</strong> — ตามโครงสร้างได้ถึง 4 ชั้นอย่างมั่นคง ชั้นที่ 5 เริ่มไม่ไหว</p>
+  </div>
+</section>
 
 <hr>
 
-<h2>เราทำอะไร</h2>
-
-<p class="lead">
-  ออกแบบระบบความจำใหม่ทั้งหมด โดยยึดงานวิจัยเรื่องความจำมนุษย์เป็นแบบ ไม่ใช่เดาเอาเอง
-</p>
-
-<p>หลักการมีสามข้อ</p>
-
-<div class="card">
-  <span class="label">หนึ่ง</span>
-  <p><strong>ไม่ลบอะไรทั้งนั้น</strong> — ความทรงจำจะ “จาง” ลงเป็นขั้น ๆ จนเหลือแค่เค้าโครง
-  แต่ไม่มีขั้นไหนที่แปลว่าหายไป</p>
-</div>
-
-<div class="card">
-  <span class="label">สอง</span>
-  <p><strong>ลืมมีสองแบบ ที่ไม่เกี่ยวกัน</strong> — “นึกไม่ค่อยออก” (ต้องใช้เวลาค้นนานขึ้น)
-  กับ “จำรายละเอียดไม่ได้” (เหลือแต่แก่น) สองอย่างนี้เกิดจากคนละสาเหตุ
-  อย่างแรกเกิดเพราะไม่ได้ใช้มานาน อย่างหลังเกิดเพราะที่เก็บเต็ม</p>
-</div>
-
-<div class="card">
-  <span class="label">สาม</span>
-  <p><strong>แยกเก็บตามหน้าที่</strong> — เหมือนที่สมองคนแยก “นิสัย” ออกจาก “เหตุการณ์เมื่อวาน”
-  ไม่ได้กองรวมกัน</p>
-</div>
-
-<h3>ห้องความจำสี่ห้อง</h3>
+<h2>สรุปว่าตอนนี้อยู่ตรงไหน</h2>
 
 <div class="scroll">
-<table>
-  <thead>
-    <tr><th>ห้อง</th><th>เก็บอะไร</th><th>ใช้ยังไง</th></tr>
-  </thead>
-  <tbody>
-    <tr><td><strong>ตัวตน</strong></td><td>นิสัย ค่านิยม วิธีพูด</td><td>อยู่กับตัวตลอด ไม่ต้องเรียก และ<strong>ไม่มีวันจาง</strong></td></tr>
-    <tr><td><strong>ความตั้งใจ</strong></td><td>“ตอนเช้าให้ทำ X” “ถ้าเจอ Y ให้ทำ Z”</td><td>รออยู่เงียบ ๆ ไม่กินที่ พอถึงเวลาก็ผุดขึ้นเอง</td></tr>
-    <tr><td><strong>ทักษะ</strong></td><td>วิธีทำ สิ่งที่ทำเป็นประจำ</td><td>สถานการณ์คุ้น ๆ มาปุ๊บ มันมาเอง ไม่ต้องนั่งค้น</td></tr>
-    <tr><td><strong>ประสบการณ์</strong></td><td>เรื่องราวทั้งหมดที่ผ่านมา</td><td>ต้องนึกถึงจึงจะดึงมา และเป็นห้องที่จางได้</td></tr>
-  </tbody>
-</table>
+  <table>
+    <thead><tr><th>คำถาม</th><th>ผล</th></tr></thead>
+    <tbody>
+      <tr><td>ที่เก็บเต็มแล้วเสียแค่รายละเอียดไหม</td><td>✅ ผ่าน</td></tr>
+      <tr><td>ใช้พื้นที่บนโต๊ะน้อยกว่าไหม</td><td>✅ ผ่าน — น้อยกว่า 16 เท่า</td></tr>
+      <tr><td>จำเยอะแล้วช้าลงไหม</td><td>⚠️ เร็วกว่าเดิม 4–6 เท่า แต่ยังไม่ถึงเป้าที่ตั้งเอง</td></tr>
+      <tr><td>จำนิสัยได้เองไหม</td><td>✅ ผ่าน</td></tr>
+      <tr><td>ลืมเหมือนคนไหม</td><td>✅ ผ่าน</td></tr>
+      <tr><td>อ่านโครงสร้างเองได้ไหม</td><td>✅ ผ่าน ถึง 4 ชั้น</td></tr>
+    </tbody>
+  </table>
 </div>
 
-<p>
-  <strong>นิสัยเกิดขึ้นเองโดยไม่มีใครสอน</strong> — ถ้าระบบเห็นว่าทำอะไรซ้ำ ๆ นานพอ
-  มันจะยกสิ่งนั้นขึ้นมาเป็น “นิสัย” เอง ในการทดลอง 200 วัน มันสร้างนิสัยขึ้นมาสองอย่างเอง
-  จากกิจวัตรที่เกิดซ้ำ 21 ครั้ง โดยไม่ไปหยิบเรื่องจร ๆ มาปนเลย
-</p>
-
-<hr>
-
-<h2>ผลออกมาเป็นยังไง</h2>
-
-<p class="lead">
-  เราสร้างโลกจำลอง ให้ระบบทั้งห้าแบบใช้ชีวิตในโลกเดียวกัน
-  แล้วถามคำถามเดียวกัน ภายใต้ข้อจำกัดเท่ากันทุกอย่าง
-</p>
-
-<h3>1. พอที่เก็บเล็กลง อะไรหายก่อน</h3>
-
-<figure>
-  <div class="legend">
-    <span><i class="swatch" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร (แก่น)</span>
-    <span><i class="swatch" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
-  </div>
-  <svg viewBox="0 0 660 240" role="img" aria-label="กราฟเปรียบเทียบ: เมื่อลดขนาดที่เก็บลง 40 เท่า SomaOS ยังจำแก่นได้เกือบเต็มตลอด ขณะที่รายละเอียดค่อย ๆ หาย ส่วนวิธีทั่วไปเสียทั้งสองอย่าง">
-    <text class="ttl" x="14" y="16">SomaOS</text>
-    <text class="ttl" x="354" y="16">วิธีที่ใช้กันทั่วไป</text>
-
-    <!-- panel A grid -->
-    <g stroke="currentColor" stroke-opacity=".12">
-      <line x1="48" y1="34" x2="304" y2="34"/><line x1="48" y1="103" x2="304" y2="103"/><line x1="48" y1="172" x2="304" y2="172"/>
-      <line x1="388" y1="34" x2="644" y2="34"/><line x1="388" y1="103" x2="644" y2="103"/><line x1="388" y1="172" x2="644" y2="172"/>
-    </g>
-    <text class="ax" x="42" y="38" text-anchor="end">100%</text>
-    <text class="ax" x="42" y="107" text-anchor="end">50%</text>
-    <text class="ax" x="42" y="176" text-anchor="end">0</text>
-
-    <!-- SomaOS: gist flat -->
-    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
-      points="48,34.7 112,34.7 176,34.7 240,34.7 304,36.2"/>
-    <!-- SomaOS: detail falls -->
-    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
-      points="48,34 112,35.8 176,64.8 240,113.8 304,147.4"/>
-    <g fill="var(--series-1)"><circle cx="48" cy="34.7" r="3.4"/><circle cx="304" cy="36.2" r="3.4"/></g>
-    <g fill="var(--series-2)"><circle cx="48" cy="34" r="3.4"/><circle cx="304" cy="147.4" r="3.4"/></g>
-    <text class="pt" x="298" y="28" text-anchor="end" fill="var(--series-1)">98%</text>
-    <text class="pt" x="298" y="163" text-anchor="end" fill="var(--series-2)">18%</text>
-
-    <!-- typical: gist wobbles then drops -->
-    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
-      points="388,60 452,52.5 516,37.7 580,38.6 644,57"/>
-    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
-      points="388,34 452,69.2 516,104.8 580,132.1 644,164.7"/>
-    <g fill="var(--series-1)"><circle cx="388" cy="60" r="3.4"/><circle cx="644" cy="57" r="3.4"/></g>
-    <g fill="var(--series-2)"><circle cx="388" cy="34" r="3.4"/><circle cx="644" cy="164.7" r="3.4"/></g>
-    <text class="pt" x="638" y="50" text-anchor="end" fill="var(--series-1)">83%</text>
-    <text class="pt" x="638" y="180" text-anchor="end" fill="var(--series-2)">5%</text>
-
-    <!-- axes -->
-    <g stroke="currentColor" stroke-opacity=".3">
-      <line x1="48" y1="172" x2="304" y2="172"/><line x1="388" y1="172" x2="644" y2="172"/>
-    </g>
-    <text class="ax" x="48" y="192">ที่เก็บใหญ่</text>
-    <text class="ax" x="304" y="192" text-anchor="end">เล็กลง 40 เท่า</text>
-    <text class="ax" x="388" y="192">ที่เก็บใหญ่</text>
-    <text class="ax" x="644" y="192" text-anchor="end">เล็กลง 40 เท่า</text>
-    <text class="ax" x="48" y="216">ยิ่งไปทางขวา = ที่เก็บยิ่งเล็ก · เฉลี่ยจาก 3 การทดลอง</text>
-  </svg>
-  <figcaption>
-    <strong>เส้นน้ำเงินของ SomaOS แบนราบเกือบตลอด</strong> — บีบที่เก็บให้เล็กลง 40 เท่า
-    มันก็ยังรู้ว่าเรื่องนั้นเกี่ยวกับอะไรอยู่ (98%) ขณะที่รายละเอียดค่อย ๆ หายไป
-    ส่วนวิธีทั่วไปเสียทั้งสองอย่างพร้อมกัน — นี่คือความต่างระหว่าง <em class="q">“ลืมรายละเอียด”</em>
-    กับ <em class="q">“ของหาย”</em>
-  </figcaption>
-</figure>
-
-<h3>2. ใช้ที่ว่างบนโต๊ะน้อยกว่ามาก</h3>
-
-<div class="hero">
-  <span class="n">16×</span>
-  <span class="t">
-    SomaOS ตอบคำถามได้ดีกว่า <b>โดยใช้ที่ว่างบนโต๊ะน้อยกว่า 16 เท่า</b><br>
-    ที่พื้นที่เท่ากับ 64 หน่วย มันตอบถูก 99% — ส่วนวิธีทั่วไปให้พื้นที่ถึง 1,024 หน่วย
-    ก็ยังตอบรายละเอียดได้แค่ 76%
-  </span>
-</div>
+<h2>สิ่งที่ยังไม่ดี — พูดตรง ๆ</h2>
 
 <p>
-  และที่น่าสนใจกว่านั้นคือ <strong>ให้พื้นที่เพิ่มไปมันก็ไม่เอา</strong> — SomaOS ใช้จริงอยู่แค่ราว ๆ ครึ่งเดียว
-  ของที่ให้ ขณะที่วิธีทั่วไปใช้จนเต็มทุกครั้งที่มีให้ นี่คือความต่างระหว่าง
-  <em class="q">“หยิบมาเท่าที่ต้องใช้”</em> กับ <em class="q">“ยัดมาให้มากที่สุด”</em>
-</p>
-
-<h3>3. “พยายามนึก” เป็นปุ่มที่หมุนได้จริง</h3>
-
-<figure>
-  <div class="legend">
-    <span><i class="swatch" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร</span>
-    <span><i class="swatch" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
-  </div>
-  <svg viewBox="0 0 660 220" role="img" aria-label="กราฟ: เมื่อเพิ่มความพยายามในการนึกจาก 4 ก้าวเป็น 64 ก้าว ความสามารถจำแก่นคงที่ที่ 98 เปอร์เซ็นต์ตลอด ส่วนการจำรายละเอียดไต่จาก 74 ขึ้นไป 96 เปอร์เซ็นต์">
-    <g stroke="currentColor" stroke-opacity=".12">
-      <line x1="70" y1="30" x2="600" y2="30"/><line x1="70" y1="99" x2="600" y2="99"/><line x1="70" y1="168" x2="600" y2="168"/>
-    </g>
-    <text class="ax" x="64" y="34" text-anchor="end">100%</text>
-    <text class="ax" x="64" y="103" text-anchor="end">50%</text>
-    <text class="ax" x="64" y="172" text-anchor="end">0</text>
-
-    <polyline fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"
-      points="70,33.3 202,33.3 335,33.3 467,33.3 600,33.3"/>
-    <polyline fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"
-      points="70,66.4 202,48.2 335,40.4 467,35.2 600,35.2"/>
-    <g fill="var(--series-1)"><circle cx="70" cy="33.3" r="3.6"/><circle cx="600" cy="33.3" r="3.6"/></g>
-    <g fill="var(--series-2)"><circle cx="70" cy="66.4" r="3.6"/><circle cx="600" cy="35.2" r="3.6"/></g>
-
-    <text class="pt" x="70" y="24" fill="var(--series-1)">98%</text>
-    <text class="pt" x="70" y="84" fill="var(--series-2)">74%</text>
-    <text class="pt" x="600" y="52" text-anchor="end" fill="var(--series-2)">96%</text>
-
-    <g stroke="currentColor" stroke-opacity=".3"><line x1="70" y1="168" x2="600" y2="168"/></g>
-    <text class="ax" x="70" y="188" text-anchor="middle">4 ก้าว</text>
-    <text class="ax" x="202" y="188" text-anchor="middle">8</text>
-    <text class="ax" x="335" y="188" text-anchor="middle">16</text>
-    <text class="ax" x="467" y="188" text-anchor="middle">32</text>
-    <text class="ax" x="600" y="188" text-anchor="middle">64 ก้าว</text>
-    <text class="ax" x="70" y="210">ความพยายามในการนึก →</text>
-  </svg>
-  <figcaption>
-    <strong>แก่นมาทันทีตั้งแต่ก้าวแรก ๆ ส่วนรายละเอียดคือสิ่งที่ความพยายามซื้อมา</strong>
-    ที่ 4 ก้าว ระบบทำงานน้อยกว่าการค้นทั้งโกดังถึง 6 เท่า และตอบ “เรื่องนั้นเกี่ยวกับอะไร” ได้ 98% แล้ว
-    ตรงกับที่คนรู้สึกเวลานึกอะไรไม่ออก — เรารู้คร่าว ๆ ทันที แต่ต้องนึกอยู่พักหนึ่งกว่าจะได้รายละเอียด
-  </figcaption>
-</figure>
-
-<p class="pull">
-  สรุปคือ ระบบนี้ <strong>จำได้มากกว่า ใช้ที่น้อยกว่า และทำงานน้อยกว่า</strong>
-  พร้อมกันทั้งสามอย่าง — ในโลกจำลอง
-</p>
-
-<hr>
-
-<h2>สิ่งที่ยังไม่ดี (พูดตรง ๆ)</h2>
-
-<p class="lead">
-  ส่วนนี้สำคัญพอ ๆ กับผลข้างบน เพราะโปรเจกต์นี้ตั้งกฎไว้ตั้งแต่ต้นว่า
-  <strong>ถ้าวัดไม่ผ่านให้รายงานตามนั้น ห้ามแก้ตัวเลข</strong>
+  โปรเจกต์นี้ตั้งกฎไว้ตั้งแต่ต้นว่า <strong>ถ้าวัดไม่ผ่าน ให้รายงานตามนั้น ห้ามแก้ตัวเลข</strong>
 </p>
 
 <ul>
-  <li><strong>ยังเป็นโลกจำลองทั้งหมด</strong> — ยังไม่ได้ต่อกับ AI ตัวจริง และยังไม่ได้ใช้เทคโนโลยี
-    เข้าใจภาษาจริง ตัวเลขที่เห็นจึงเป็น “โครงสร้างใช้ได้” ไม่ใช่ “ใช้งานได้จริงแล้ว”</li>
-  <li><strong>เกณฑ์ความเร็วที่ตั้งไว้ยังไม่ผ่าน</strong> — เราตั้งเป้าว่าต้นทุนการนึกต้องโตช้ากว่านี้
-    ตอนนี้มันโตช้ากว่าวิธีเดิมจริง แต่ยังไม่ถึงเป้าที่เขียนไว้เอง
-    ต้องตัดสินว่าจะแก้โครงสร้าง หรือเป้าที่ตั้งไว้ไม่สมเหตุสมผลตั้งแต่แรก</li>
-  <li><strong>ถ้าบีบที่เก็บจนสุด ๆ ทุกอย่างก็แย่ลง</strong> — ที่ขนาดเล็กสุด รายละเอียดเหลือ 18%
-    ยังดีกว่าวิธีอื่น (5%) แต่ก็ไม่ใช่ตัวเลขที่น่าพอใจ</li>
-  <li><strong>ค่าปรับแต่งหลายตัวยังตั้งมือ</strong> — เช่น “ทำซ้ำกี่ครั้งถึงนับเป็นนิสัย”
-    ยังไม่ได้หาค่าที่ดีที่สุดอย่างเป็นระบบ</li>
+  <li><strong>ยังเป็นโลกจำลองทั้งหมด</strong> — ยังไม่ได้ต่อกับ AI ตัวจริง
+    ตัวเลขที่เห็นบอกว่า “โครงสร้างใช้ได้” ไม่ได้บอกว่า “ใช้งานจริงได้แล้ว”</li>
+  <li><strong>เป้าความเร็วที่ตั้งไว้เอง ยังไม่ผ่าน</strong> — ต้องตัดสินก่อนไปต่อ</li>
+  <li><strong>ยังไม่เคยเทียบกับข้อมูลคนไข้จริง</strong> — ที่บอกว่า “ลืมเหมือนคน” คือตรงกัน
+    <em>เชิงรูปแบบ</em> ยังไม่ใช่การเทียบตัวเลขกับข้อมูลจริง</li>
+  <li><strong>ค่าปรับแต่งหลายตัวยังตั้งด้วยมือ</strong> — ยังไม่ได้หาค่าที่ดีที่สุดอย่างเป็นระบบ</li>
   <li><strong>ผลชุดนี้ยังไม่ใช่คำตัดสิน</strong> — เราตั้งกติกาไว้ว่าต้องประกาศเกณฑ์ก่อน
-    แล้ววัดกับข้อมูลชุดที่ไม่เคยเห็นเพียงครั้งเดียว ตัวเลขข้างบนมาจากข้อมูลชุดที่ใช้พัฒนา
-    <strong>ยังไม่ใช่การสอบจริง</strong></li>
+    แล้ววัดกับข้อมูลชุดที่ไม่เคยเห็นเพียงครั้งเดียว ตัวเลขทั้งหมดข้างบนมาจากชุดที่ใช้พัฒนา
+    — <strong>ยังไม่ใช่การสอบจริง</strong></li>
 </ul>
 
-<div class="card">
-  <span class="label">เรื่องที่น่าสนใจระหว่างทาง</span>
-  <p>
-    การลงมือวัดผลจริง ทำให้เจอว่าตัวเองออกแบบผิดไป 6 จุด และทุกจุดเจอเพราะ<strong>วัด ไม่ใช่เพราะคิด</strong>
-    ตัวที่หนักที่สุดคือระบบเคย “นึกถึงแต่เรื่องล่าสุด” ไม่ว่าจะถามอะไร —
-    เหมือนถามถึงงานแต่งงาน แล้วมันเล่าเรื่องข้าวเช้าให้ฟัง เพราะข้าวเช้าใกล้กว่า
-    ก่อนแก้ ระบบหาของเจอแค่ 3% หลังแก้ 100%
-  </p>
-</div>
-
-<hr>
+<h3>เรื่องที่น่าสนใจระหว่างทาง</h3>
+<p>
+  การลงมือวัดจริงทำให้เจอว่าออกแบบผิดไป <strong>8 จุด</strong> และทุกจุดเจอเพราะ<strong>วัด ไม่ใช่เพราะคิด</strong>
+  ตัวที่หนักที่สุดคือระบบเคย “นึกถึงแต่เรื่องล่าสุด” ไม่ว่าจะถามอะไร — เหมือนถามถึงงานแต่งงาน
+  แล้วมันเล่าเรื่องข้าวเช้าให้ฟัง เพราะข้าวเช้าใกล้กว่า ก่อนแก้หาของเจอแค่ 3% หลังแก้ 100%
+</p>
 
 <h2>ต่อไปทำอะไร</h2>
-
 <ul>
-  <li><strong>ตัดสินเรื่องเกณฑ์ความเร็ว</strong> ที่ยังไม่ผ่าน — ก่อนจะไปสอบจริง</li>
+  <li><strong>ตัดสินเรื่องเป้าความเร็ว</strong> ที่ยังไม่ผ่าน — ก่อนจะไปสอบจริง</li>
   <li><strong>ประกาศเกณฑ์การสอบให้ครบ</strong> แล้วค่อยวัดกับข้อมูลชุดใหม่ครั้งเดียว</li>
-  <li><strong>ต่อกับ AI ตัวจริง</strong> เมื่อพร้อม — จุดเชื่อมออกแบบเผื่อไว้แล้วสองจุด
-    และมีทางสำรองที่ทำงานได้เองโดยไม่ต้องพึ่ง AI เสมอ เพื่อจะได้วัดได้ว่า
-    “การให้ AI เลือกเอง” เพิ่มค่าจริงเท่าไหร่</li>
+  <li><strong>ต่อกับ AI ตัวจริง</strong> เมื่อพร้อม — จุดเชื่อมออกแบบเผื่อไว้แล้ว
+    และมีทางสำรองที่ทำงานได้เองโดยไม่ต้องพึ่ง AI เสมอ เพื่อจะได้วัดว่าการให้ AI ตัดสินใจเอง
+    เพิ่มค่าจริงเท่าไหร่</li>
 </ul>
 
 <footer>
-  ทดลองซ้ำได้ทั้งหมด · <code>python -m somaos.bench.experiments.curves</code><br>
-  โค้ดและเอกสารทั้งหมดอยู่บน branch <code>claude/current-phase-progress-t8jqdr</code> · ทดสอบอัตโนมัติ 552 ข้อ ผ่านทั้งหมด<br>
-  รายละเอียดเชิงเทคนิค: <code>plans/03_MEMORY_ARCHITECTURE.md</code> ·
-  พื้นฐานงานวิจัย: <code>plans/04_HUMAN_MEMORY_BASIS.md</code>
+  ทดลองซ้ำได้ทั้งหมด · <code>python -m somaos.bench.experiments.curves</code> ·
+  <code>...superordinate</code> · <code>...depth</code><br>
+  ทดสอบอัตโนมัติ 568 ข้อ ผ่านทั้งหมด · branch <code>claude/current-phase-progress-t8jqdr</code>
 </footer>
 
 </div>
