@@ -1,338 +1,835 @@
-<title>ความจำของ AI ที่ลืมแบบคน</title>
+<title>โครงสร้างความจำ SomaOS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+Thai:wght@400;500;600&display=swap">
 
 <style>
+  /* ---- light palette: the complete token set lives here ---- */
   :root {
     color-scheme: light;
-    --ground:      #F3F1EC;
-    --surface:     #FCFCFB;
-    --surface-2:   #EAE7DF;
-    --line:        #D8D3C8;
-    --line-soft:   #E5E1D8;
-    --ink:         #1A1917;
-    --ink-2:       #504F4B;
-    --ink-3:       #7C7A73;
-    --series-1:    #2a78d6;
-    --series-2:    #eb6834;
-    --ok:          #1baf7a;
-    --sans: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
+    --paper:     #F1F3F4;
+    --surface:   #FBFBFC;
+    --surface-2: #E4E7E9;
+    --line:      #D2D7DA;
+    --line-soft: #E3E6E8;
+    --ink:       #15181B;
+    --ink-2:     #4B5158;
+    --ink-3:     #79818A;
+    /* blue = structure, the thing that persists.
+       ochre = fidelity, the thing that fades. used nowhere else. */
+    --structure: #2F5D8C;
+    --fade:      #A96C1E;
+    --live:      #1B7F63;
+
+    --display: "Bai Jamjuree", system-ui, sans-serif;
+    --body: "Noto Serif Thai", Georgia, serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --ground: #141412; --surface: #1D1D1A; --surface-2: #292923;
-      --line: #3A3A34; --line-soft: #2C2C27;
-      --ink: #F2F0EA; --ink-2: #C6C4BA; --ink-3: #918F86;
-      --series-1: #3987e5; --series-2: #d95926; --ok: #199e70;
+      --paper:     #0F1214;
+      --surface:   #181C1F;
+      --surface-2: #232829;
+      --line:      #343A3D;
+      --line-soft: #262B2E;
+      --ink:       #EDEFF1;
+      --ink-2:     #B7BEC4;
+      --ink-3:     #868E95;
+      --structure: #6BA2D8;
+      --fade:      #D2963F;
+      --live:      #35A585;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --ground: #141412; --surface: #1D1D1A; --surface-2: #292923;
-    --line: #3A3A34; --line-soft: #2C2C27;
-    --ink: #F2F0EA; --ink-2: #C6C4BA; --ink-3: #918F86;
-    --series-1: #3987e5; --series-2: #d95926; --ok: #199e70;
+    --paper:     #0F1214;
+    --surface:   #181C1F;
+    --surface-2: #232829;
+    --line:      #343A3D;
+    --line-soft: #262B2E;
+    --ink:       #EDEFF1;
+    --ink-2:     #B7BEC4;
+    --ink-3:     #868E95;
+    --structure: #6BA2D8;
+    --fade:      #D2963F;
+    --live:      #35A585;
   }
 
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: var(--ground); color: var(--ink);
-    font-family: var(--sans); font-size: 17.5px; line-height: 1.9;
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.95;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 43rem; margin: 0 auto; padding: 0 1.4rem 7rem; }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 0 1.4rem 7rem; }
 
-  header { padding: 4.5rem 0 2rem; }
-  .kicker { font-family: var(--mono); font-size: .75rem; letter-spacing: .16em;
-            text-transform: uppercase; color: var(--ink-3); margin: 0 0 1.2rem; }
-  h1 { font-size: clamp(2.2rem, 6.5vw, 3.4rem); line-height: 1.1; font-weight: 700;
-       letter-spacing: -.025em; margin: 0 0 1.2rem; text-wrap: balance; }
-  .dek { font-size: 1.24rem; color: var(--ink-2); margin: 0; }
+  /* ---------- masthead ---------- */
+  header { padding: 4.5rem 0 2.2rem; }
+  .kicker {
+    font-family: var(--mono); font-size: .73rem; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 1.3rem;
+  }
+  h1 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(2.1rem, 6.4vw, 3.2rem); line-height: 1.12;
+    letter-spacing: -.02em; margin: 0 0 1.1rem; text-wrap: balance;
+  }
+  .dek { font-size: 1.16rem; color: var(--ink-2); margin: 0; }
+  .dek b { color: var(--ink); font-weight: 600; }
 
-  hr { border: 0; height: 1px; background: var(--line); margin: 3rem 0 0; }
+  /* ---------- part dividers ---------- */
+  .part {
+    margin: 4.5rem 0 0; padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+    display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+  }
+  .part .tag {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--structure); font-weight: 500;
+  }
+  .part h2 {
+    font-family: var(--display); font-size: 1.85rem; font-weight: 700;
+    margin: 0; letter-spacing: -.015em; line-height: 1.25;
+  }
+  .part + p { color: var(--ink-2); font-size: 1.05rem; margin-top: .9rem; }
 
-  h2 { font-size: 1.62rem; font-weight: 700; margin: 3.4rem 0 1rem;
-       letter-spacing: -.015em; text-wrap: balance; line-height: 1.3; }
-  h3 { font-size: 1.05rem; font-weight: 600; margin: 2rem 0 .4rem; }
-  p { margin: 0 0 1.15rem; }
+  h2 {
+    font-family: var(--display); font-size: 1.5rem; font-weight: 600;
+    margin: 3rem 0 .9rem; letter-spacing: -.01em; line-height: 1.35;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--display); font-size: 1.06rem; font-weight: 600;
+    margin: 2.1rem 0 .4rem;
+  }
+  p { margin: 0 0 1.1rem; }
   strong { font-weight: 600; }
+  em { font-style: normal; font-weight: 600; color: var(--ink); }
 
-  /* the repeating question block */
-  .q {
-    margin: 3.4rem 0 0;
-    border-top: 3px solid var(--ink);
-    padding-top: 1.4rem;
+  /* ---------- layer blocks: part I builds upward, so it is numbered ---------- */
+  .layer {
+    margin: 3.2rem 0 0; padding-left: 1.6rem;
+    border-left: 2px solid var(--structure);
   }
-  .q > .num {
-    font-family: var(--mono); font-size: .74rem; letter-spacing: .14em;
-    color: var(--ink-3); text-transform: uppercase; display: block; margin-bottom: .6rem;
+  .layer > .n {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .16em;
+    color: var(--structure); text-transform: uppercase;
+    display: block; margin-bottom: .45rem;
   }
-  .q > h2 { margin-top: 0; }
+  .layer > h2 { margin-top: 0; }
+
+  /* ---------- evidence blocks: independent, so they are labelled not numbered ---------- */
+  .ev { margin: 3.2rem 0 0; padding-top: 1.3rem; border-top: 1px solid var(--line); }
+  .ev > .tests {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .14em;
+    color: var(--ink-3); text-transform: uppercase;
+    display: block; margin-bottom: .45rem;
+  }
+  .ev > h2 { margin-top: 0; }
 
   .why {
     background: var(--surface); border: 1px solid var(--line-soft);
-    border-left: 3px solid var(--series-1);
-    border-radius: 0 4px 4px 0; padding: 1.1rem 1.35rem; margin: 1.4rem 0 1.8rem;
+    border-left: 2px solid var(--structure);
+    padding: 1rem 1.3rem; margin: 1.3rem 0 1.7rem;
   }
-  .why b { display: block; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase;
-           color: var(--series-1); margin-bottom: .35rem; font-weight: 600; }
-  .why p { margin: 0; font-size: 1rem; color: var(--ink-2); line-height: 1.75; }
+  .why b {
+    display: block; font-family: var(--display); font-size: .76rem;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--structure); margin-bottom: .3rem; font-weight: 600;
+  }
+  .why p { margin: 0; font-size: .99rem; color: var(--ink-2); line-height: 1.8; }
 
-  .how { font-size: 1rem; color: var(--ink-2); }
-  .how em { font-style: normal; color: var(--ink); font-weight: 500; }
+  .how { font-size: .99rem; color: var(--ink-2); }
 
   .verdict {
-    display: flex; gap: .9rem; align-items: flex-start;
-    background: var(--surface-2); border-radius: 4px;
-    padding: 1rem 1.2rem; margin: 1.6rem 0 0; font-size: 1.02rem;
+    display: flex; gap: .85rem; align-items: flex-start;
+    background: var(--surface-2); padding: .95rem 1.15rem; margin: 1.5rem 0 0;
+    font-size: 1rem; border-left: 2px solid var(--live);
   }
-  .verdict .mark { font-size: 1.2rem; line-height: 1.5; flex: 0 0 auto; }
+  .verdict .mark { font-size: 1.1rem; line-height: 1.6; flex: 0 0 auto; }
   .verdict p { margin: 0; }
-  .verdict.no { border-left: 3px solid var(--series-2); }
+  .verdict.part-only { border-left-color: var(--fade); }
 
-  figure { margin: 1.8rem 0; background: var(--surface);
-           border: 1px solid var(--line-soft); border-radius: 4px;
-           padding: 1.3rem 1.1rem 1rem; overflow-x: auto; }
+  /* ---------- figures ---------- */
+  figure {
+    margin: 1.9rem 0; background: var(--surface);
+    border: 1px solid var(--line-soft);
+    padding: 1.3rem 1.1rem 1rem; overflow-x: auto;
+  }
   figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
-  figcaption { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--line-soft);
-               font-size: .92rem; color: var(--ink-2); line-height: 1.7; }
-  .legend { display: flex; gap: 1.3rem; flex-wrap: wrap; font-size: .88rem;
-            color: var(--ink-2); margin-bottom: .8rem; padding-left: .2rem; }
+  figcaption {
+    margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line-soft);
+    font-size: .9rem; color: var(--ink-2); line-height: 1.75;
+  }
+  .legend {
+    display: flex; gap: 1.3rem; flex-wrap: wrap; font-size: .85rem;
+    color: var(--ink-2); margin-bottom: .9rem; padding-left: .2rem;
+    font-family: var(--display); font-weight: 500;
+  }
   .legend span { display: inline-flex; align-items: center; gap: .45rem; }
-  .sw { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
+  .sw { width: 14px; height: 3px; display: inline-block; }
   .ax { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
   .pt { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-2); }
-  .th { font-family: var(--sans); font-size: 12px; font-weight: 600; fill: var(--ink); }
+  .nd { font-family: "Bai Jamjuree", system-ui, sans-serif; font-size: 12.5px;
+        font-weight: 600; fill: var(--ink); }
+  .lb { font-family: "Bai Jamjuree", system-ui, sans-serif; font-size: 11px;
+        fill: var(--ink-3); }
+  .th { font-family: "Bai Jamjuree", system-ui, sans-serif; font-size: 12px;
+        font-weight: 600; fill: var(--ink); }
 
+  /* ---------- tables ---------- */
   .scroll { overflow-x: auto; margin: 1.5rem 0; }
-  table { width: 100%; border-collapse: collapse; font-size: .97rem;
-          background: var(--surface); min-width: 22rem; }
-  th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
-  thead th { font-size: .82rem; color: var(--ink-3); font-weight: 500;
-             border-bottom: 1px solid var(--line); }
-  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: .95rem;
+    background: var(--surface); min-width: 23rem;
+  }
+  th, td { padding: .58rem .8rem; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  thead th {
+    font-family: var(--display); font-size: .81rem; color: var(--ink-3);
+    font-weight: 600; border-bottom: 1px solid var(--line); letter-spacing: .02em;
+  }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: .9rem; }
   tbody tr:last-child td { border-bottom: none; }
-  td b { color: var(--series-1); }
+  td b { color: var(--structure); font-weight: 600; }
+  td .fade { color: var(--fade); font-weight: 600; }
 
   .big {
     display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap;
     background: var(--surface); border: 1px solid var(--line-soft);
-    border-radius: 4px; padding: 1.5rem 1.5rem 1.3rem; margin: 1.8rem 0;
+    padding: 1.4rem 1.4rem 1.2rem; margin: 1.8rem 0;
   }
-  .big .n { font-size: clamp(2.8rem, 10vw, 4.2rem); font-weight: 700; line-height: .9;
-            letter-spacing: -.04em; color: var(--series-1); font-variant-numeric: tabular-nums; }
-  .big .t { flex: 1 1 13rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.65; }
+  .big .num {
+    font-family: var(--display); font-size: clamp(2.6rem, 9vw, 3.8rem);
+    font-weight: 700; line-height: .92; letter-spacing: -.035em;
+    color: var(--structure); font-variant-numeric: tabular-nums;
+  }
+  .big .t { flex: 1 1 13rem; color: var(--ink-2); font-size: 1rem; line-height: 1.7; }
   .big .t b { color: var(--ink); font-weight: 600; }
 
-  ul { padding-left: 1.35rem; margin: 1rem 0 1.4rem; }
-  li { margin-bottom: .7rem; }
-  li::marker { color: var(--ink-3); }
+  ul { padding-left: 1.3rem; margin: 1rem 0 1.4rem; }
+  li { margin-bottom: .65rem; }
+  li::marker { color: var(--structure); }
 
-  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
-           font-size: .9rem; color: var(--ink-3); line-height: 1.85; }
-  code { font-family: var(--mono); font-size: .85em; background: var(--surface-2);
-         padding: .1em .35em; border-radius: 3px; }
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem; border-top: 1px solid var(--line);
+    font-size: .88rem; color: var(--ink-3); line-height: 1.9;
+  }
+  code {
+    font-family: var(--mono); font-size: .85em; background: var(--surface-2);
+    padding: .1em .35em;
+  }
+  a { color: var(--structure); }
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--structure); outline-offset: 2px; }
 </style>
 
 <div class="wrap">
 
 <header>
-  <p class="kicker">SomaOS · รายงานความคืบหน้า · 29 ส.ค. 2026</p>
-  <h1>ความจำของ AI ที่ลืมแบบคน</h1>
+  <p class="kicker">SomaOS · รายงานสถาปัตยกรรม · 29 ส.ค. 2026</p>
+  <h1>โครงสร้างความจำ SomaOS</h1>
   <p class="dek">
-    เราสร้างระบบความจำที่ไม่ลบอะไรทิ้งเลย แล้ววัดผลได้ว่ามันลืมเหมือนคนจริง ๆ
-    รายงานนี้เรียงตาม <strong>คำถาม</strong> ไม่ใช่ตามการทดลอง — แต่ละหัวข้อจะบอกก่อนว่า
-    คำถามนั้นสำคัญกับโปรเจกต์ยังไง แล้วค่อยเล่าว่าทดสอบยังไงและได้อะไร
+    หัวใจของโปรเจกต์นี้คือ <b>โครงสร้าง</b> — ความจำถูกจัดเป็นต้นไม้ที่เก็บ<b>ที่อยู่</b>ของความทรงจำ
+    หาที่อยู่เจอแล้วพุ่งไปหยิบ ไม่ต้องรื้อทั้งกอง
+    รายงานนี้แบ่งเป็นสองภาค: <b>โครงสร้างที่ออกแบบไว้</b> และ <b>หลักฐานว่าโครงสร้างนั้นทำงานจริง</b>
   </p>
 </header>
 
-<hr>
-
-<h2>เรากำลังแก้ปัญหาอะไร</h2>
+<h2>ปัญหาที่กำลังแก้</h2>
 
 <p>
-  ลองนึกภาพผู้ช่วยที่คุณคุยด้วยทุกวัน มันมี <strong>“โต๊ะทำงาน”</strong> เล็ก ๆ ที่วางของได้ไม่กี่ชิ้น
-  ทุกอย่างที่มันจะใช้คิดต้องอยู่บนโต๊ะนี้ พอมีเรื่องใหม่เข้ามา ของเก่าก็ต้องถูกยกออก
+  ผู้ช่วย AI มี <strong>“โต๊ะทำงาน”</strong> เล็ก ๆ วางของได้ไม่กี่ชิ้น ทุกอย่างที่มันจะใช้คิด
+  ต้องอยู่บนโต๊ะนี้ พอมีเรื่องใหม่เข้ามา ของเก่าต้องถูกยกออก
 </p>
 
 <p>
-  วิธีที่ใช้กันทั่วไปตอนนี้คือเอาของเก่าไปกองไว้ใน <strong>“โกดัง”</strong> แล้วเวลาจะใช้ก็ไปค้นเอา
-  ฟังดูโอเค แต่มีปัญหาสองข้อ:
-</p>
-
-<ul>
-  <li><strong>พอโกดังเต็ม ก็ต้องทิ้งของ</strong> — และของที่ทิ้งแล้วหายถาวร</li>
-  <li><strong>ทุกครั้งที่จะนึกอะไร ต้องเดินดูทั้งโกดัง</strong> — ยิ่งจำเยอะ ยิ่งช้า</li>
-</ul>
-
-<p>
-  คนไม่ได้เป็นแบบนั้น คุณจำไม่ได้แล้วว่ามื้อเที่ยงวันอังคารที่แล้วกินอะไร
-  แต่ถ้าถามว่า <strong>“ช่วงนั้นชีวิตเป็นยังไง”</strong> คุณตอบได้ทันที
-  รายละเอียดหายไป แต่แก่นเรื่องยังอยู่ — และไม่มีวันไหนที่ความทรงจำถูกลบทิ้งจริง ๆ
+  วิธีที่ใช้กันทั่วไปคือเอาของเก่าไปกองไว้ใน <strong>“โกดัง”</strong> แล้วเวลาจะใช้ก็ไปค้น
+  ปัญหาคือโกดังนั้น <strong>ไม่มีโครงสร้าง</strong> — มันเป็นกองของแบน ๆ กองเดียว
+  จะหยิบอะไรก็ต้องไล่ดูทั้งกอง และพอเต็มก็ต้องทิ้งของ
 </p>
 
 <p>
-  <strong>เราเลยลองสร้างความจำแบบหลังดู</strong> ทุกอย่างที่เจอถูกเก็บไว้หมด ไม่มีการทิ้ง
-  แต่ของที่ไม่ค่อยได้ใช้จะค่อย ๆ “จาง” ลงเรื่อย ๆ จนเหลือแค่เค้าโครง
+  คนไม่ได้จำเป็นกอง ถ้าถามว่า <em>“ปีที่แล้วไปเที่ยวที่ไหน”</em>
+  คุณไม่ได้ไล่ทบทวนทีละวันตั้งแต่มกราคม คุณกระโดดไปที่ <em>“ช่วงปิดเทอม”</em> ก่อน
+  แล้วค่อยไล่ลงไปหาวันนั้น — <strong>ความจำของคนมีชั้น มีทางลัด และมีที่อยู่</strong>
 </p>
 
-<p class="how">
-  รายงานนี้ตอบ <em>6 คำถาม</em> ที่ต้องตอบให้ได้ ถ้าจะบอกว่าไอเดียนี้ใช้ได้จริง
+<p>
+  SomaOS สร้างโกดังที่มีโครงสร้างแบบนั้น และเพราะโครงสร้างเป็นตัวกำหนดว่าอะไรถูกดึงเข้าโต๊ะเมื่อไหร่
+  <strong>โครงสร้างจึงเป็นตัวกำหนดพฤติกรรมของ AI โดยตรง</strong> ไม่ใช่แค่เรื่องประหยัดที่เก็บ
 </p>
 
-<!-- ============ 1 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 1</span>
-  <h2>ถ้าที่เก็บเต็มขึ้นมา จะเกิดอะไรขึ้น</h2>
+<!-- ══════════════════ PART I ══════════════════ -->
+<div class="part">
+  <span class="tag">ภาคหนึ่ง</span>
+  <h2>โครงสร้าง</h2>
+</div>
 
-  <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
-    <p>
-      นี่คือหัวใจของทั้งโปรเจกต์ ถ้าที่เก็บเต็มแล้วระบบเสียทั้งรายละเอียด<em>และ</em>แก่นเรื่องไปพร้อมกัน
-      แปลว่าเราแค่สร้างโกดังที่ทิ้งของช้ากว่าเดิม ไม่ได้ต่างจากของเดิมเลย
-      ต้องเห็นให้ได้ว่ารายละเอียดหายแต่แก่นอยู่ ถึงจะเรียกว่าสำเร็จ
-    </p>
-  </div>
+<p>
+  ห้าชั้นนี้วางทับกันขึ้นไป ชั้นบนใช้ชั้นล่างเป็นฐาน จึงเรียงเป็นลำดับ
+</p>
+
+<!-- ---------- layer 1 ---------- -->
+<section class="layer">
+  <span class="n">ชั้นที่ 1 · หน่วยพื้นฐาน</span>
+  <h2>ความทรงจำหนึ่งชิ้นหน้าตาเป็นยังไง</h2>
+
+  <p>
+    ความทรงจำหนึ่งชิ้นเก็บเป็นสองอย่างคู่กัน:
+  </p>
+
+  <ul>
+    <li><strong>ตัวเลขชุดหนึ่ง</strong> ที่บอก “ทิศทาง” ของเรื่องนั้นในพื้นที่ความหมาย —
+      นี่คือส่วนที่ระบบใช้คิด</li>
+    <li><strong>ข้อความกำกับสั้น ๆ</strong> เช่น <code>“ช่วงเรื่องงบประมาณ”</code> —
+      มีไว้ให้<strong>คนอ่าน</strong>ตอน debug เท่านั้น</li>
+  </ul>
+
+  <p>
+    กฎที่ล็อกไว้ตั้งแต่ต้น: <strong>ระบบตัดสินใจจากตัวเลขเสมอ ห้ามอ่านข้อความ</strong>
+    เพราะถ้าปล่อยให้ระบบแอบใช้ข้อความเมื่อไหร่ เราจะวัดไม่ได้อีกเลยว่าโครงสร้างเป็นคนทำงาน
+    หรือการจับคู่คำเป็นคนทำงาน
+  </p>
 
   <p class="how">
-    <em>ทดสอบยังไง</em> — สร้างโลกจำลองให้ผู้ช่วยใช้ชีวิตอยู่ 200 วัน มีทั้งกิจวัตรประจำวัน
-    เรื่องจรที่เกิดครั้งเดียว และช่วงเวลาที่มีเรื่องเด่นต่างกัน จากนั้นบีบที่เก็บให้เล็กลงเรื่อย ๆ
-    40 เท่า แล้วถามคำถามสองแบบ: <em>“วันนั้นเกิดอะไรขึ้นบ้าง”</em> (รายละเอียด) กับ
-    <em>“ช่วงนั้นเกี่ยวกับเรื่องอะไร”</em> (แก่น)
+    ที่เก็บเป็นตัวเลขเพราะการหาของกลายเป็นการ <em>เทียบทิศทาง</em> — วัดได้ว่าใกล้แค่ไหน
+    เรียงลำดับได้ และที่สำคัญคือ <em>บีบให้หยาบลงได้ทีละขั้น</em> ซึ่งข้อความทำไม่ได้
+    (ข้อความบีบได้แค่ “ตัดทิ้ง” หรือ “ไม่ตัด”)
+  </p>
+</section>
+
+<!-- ---------- layer 2 ---------- -->
+<section class="layer">
+  <span class="n">ชั้นที่ 2 · การแบ่งเขต</span>
+  <h2>ความจำแบ่งเป็น 4 เขต ที่เข้าถึงคนละทาง</h2>
+
+  <p>
+    นี่คือการตัดสินใจเชิงโครงสร้างที่สำคัญที่สุด — ความทรงจำไม่ได้เท่ากันหมด
+    <strong>ของบางอย่างไม่ควรต้อง “ค้น” เลย</strong>
   </p>
 
   <figure>
     <div class="legend">
-      <span><i class="sw" style="background:var(--series-1)"></i> จำได้ว่าเรื่องอะไร (แก่น)</span>
-      <span><i class="sw" style="background:var(--series-2)"></i> จำรายละเอียดได้</span>
+      <span><i class="sw" style="background:var(--structure)"></i> เขตที่ห้ามจาง</span>
+      <span><i class="sw" style="background:var(--fade)"></i> เขตที่จางได้</span>
     </div>
-    <svg viewBox="0 0 640 250" role="img" aria-label="เปรียบเทียบสองระบบ: เมื่อบีบที่เก็บเล็กลง 40 เท่า ระบบของเรายังจำแก่นได้เกือบเต็มตลอด ขณะที่รายละเอียดค่อย ๆ หาย ส่วนวิธีทั่วไปเสียทั้งสองอย่าง">
-      <text class="th" x="14" y="16">ระบบของเรา</text>
-      <text class="th" x="344" y="16">วิธีที่ใช้กันทั่วไป</text>
-      <g stroke="currentColor" stroke-opacity=".12">
-        <line x1="48" y1="36" x2="294" y2="36"/><line x1="48" y1="106" x2="294" y2="106"/><line x1="48" y1="176" x2="294" y2="176"/>
-        <line x1="378" y1="36" x2="624" y2="36"/><line x1="378" y1="106" x2="624" y2="106"/><line x1="378" y1="176" x2="624" y2="176"/>
+    <svg viewBox="0 0 680 330" role="img" aria-label="ผังการเข้าถึงความจำสี่เขต: แก่นตัวตนอยู่บนโต๊ะเสมอ นัดหมายถูกปลุกด้วยเวลาหรือเหตุการณ์ ทักษะเรียกด้วยการจับคู่สถานการณ์โดยไม่เสียแรง ส่วนคลังความทรงจำต้องเดินต้นไม้ซึ่งเป็นทางเดียวที่เสียแรงนึก">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+        </marker>
+        <marker id="arS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--structure)"/>
+        </marker>
+      </defs>
+
+      <!-- inputs -->
+      <text class="th" x="14" y="20">สิ่งที่เข้ามา</text>
+      <rect x="14" y="86" width="96" height="34" rx="2" fill="none" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="nd" x="62" y="107" text-anchor="middle">เวลา / เหตุ</text>
+      <rect x="14" y="212" width="96" height="34" rx="2" fill="none" stroke="currentColor" stroke-opacity=".45"/>
+      <text class="nd" x="62" y="233" text-anchor="middle">คำถาม</text>
+
+      <!-- regions -->
+      <text class="th" x="196" y="20">เขตความจำ</text>
+      <g fill="none" stroke="currentColor" stroke-opacity=".3">
+        <rect x="196" y="34" width="212" height="40" rx="2"/>
+        <rect x="196" y="86" width="212" height="40" rx="2"/>
+        <rect x="196" y="160" width="212" height="40" rx="2"/>
+        <rect x="196" y="212" width="212" height="74" rx="2"/>
       </g>
-      <text class="ax" x="42" y="40" text-anchor="end">ตอบถูกหมด</text>
-      <text class="ax" x="42" y="180" text-anchor="end">ตอบไม่ได้</text>
-
-      <polyline fill="none" stroke="var(--series-1)" stroke-width="2.4" stroke-linejoin="round"
-        points="48,36.7 110,36.7 172,36.7 233,36.7 294,38.2"/>
-      <polyline fill="none" stroke="var(--series-2)" stroke-width="2.4" stroke-linejoin="round"
-        points="48,36 110,37.8 172,67 233,116 294,150"/>
-      <g fill="var(--series-1)"><circle cx="48" cy="36.7" r="3.6"/><circle cx="294" cy="38.2" r="3.6"/></g>
-      <g fill="var(--series-2)"><circle cx="48" cy="36" r="3.6"/><circle cx="294" cy="150" r="3.6"/></g>
-      <text class="pt" x="288" y="30" text-anchor="end" fill="var(--series-1)">98%</text>
-      <text class="pt" x="288" y="166" text-anchor="end" fill="var(--series-2)">18%</text>
-
-      <polyline fill="none" stroke="var(--series-1)" stroke-width="2.4" stroke-linejoin="round"
-        points="378,62 440,54 502,38 563,39 624,59"/>
-      <polyline fill="none" stroke="var(--series-2)" stroke-width="2.4" stroke-linejoin="round"
-        points="378,36 440,71 502,107 563,134 624,167"/>
-      <g fill="var(--series-1)"><circle cx="378" cy="62" r="3.6"/><circle cx="624" cy="59" r="3.6"/></g>
-      <g fill="var(--series-2)"><circle cx="378" cy="36" r="3.6"/><circle cx="624" cy="167" r="3.6"/></g>
-      <text class="pt" x="618" y="52" text-anchor="end" fill="var(--series-1)">83%</text>
-      <text class="pt" x="618" y="182" text-anchor="end" fill="var(--series-2)">5%</text>
-
-      <g stroke="currentColor" stroke-opacity=".28">
-        <line x1="48" y1="176" x2="294" y2="176"/><line x1="378" y1="176" x2="624" y2="176"/>
+      <g stroke-width="3">
+        <line x1="197" y1="34" x2="197" y2="74" stroke="var(--structure)"/>
+        <line x1="197" y1="86" x2="197" y2="126" stroke="var(--structure)"/>
+        <line x1="197" y1="160" x2="197" y2="200" stroke="var(--fade)"/>
+        <line x1="197" y1="212" x2="197" y2="286" stroke="var(--fade)"/>
       </g>
-      <text class="ax" x="48" y="196">ที่เก็บใหญ่</text>
-      <text class="ax" x="294" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
-      <text class="ax" x="378" y="196">ที่เก็บใหญ่</text>
-      <text class="ax" x="624" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
-      <text class="ax" x="48" y="228">เฉลี่ยจากการทดลอง 3 ครั้ง · ยิ่งไปทางขวา ที่เก็บยิ่งเล็ก</text>
+      <text class="nd" x="212" y="52">แก่นตัวตน</text>
+      <text class="lb" x="212" y="67">ฉันเป็นใคร ให้ค่าอะไร</text>
+      <text class="nd" x="212" y="104">นัดหมาย</text>
+      <text class="lb" x="212" y="119">ตั้งใจว่าจะทำอะไรเมื่อไหร่</text>
+      <text class="nd" x="212" y="178">ทักษะ / นิสัย</text>
+      <text class="lb" x="212" y="193">เจอแบบนี้ ทำแบบนี้</text>
+      <text class="nd" x="212" y="236">คลังความทรงจำ</text>
+      <text class="lb" x="212" y="251">ทุกอย่างที่เคยเกิดขึ้น</text>
+      <text class="lb" x="212" y="273" fill="var(--fade)">จัดเป็นต้นไม้ — ดูชั้นถัดไป</text>
+
+      <!-- arrows in -->
+      <g stroke="currentColor" stroke-opacity=".5" fill="none" marker-end="url(#ar)">
+        <path d="M 112 103 L 190 103"/>
+        <path d="M 112 226 C 150 226 150 180 190 180"/>
+        <path d="M 112 240 L 190 244"/>
+      </g>
+      <text class="lb" x="120" y="172">จับคู่สถานการณ์</text>
+      <text class="lb" x="120" y="186" fill="var(--live)">ไม่เสียแรง</text>
+      <text class="lb" x="120" y="264">เดินต้นไม้</text>
+      <text class="lb" x="120" y="278" fill="var(--fade)">เสียแรงนึก</text>
+
+      <!-- desk -->
+      <rect x="490" y="34" width="176" height="252" rx="2" fill="none" stroke="var(--structure)" stroke-width="1.5"/>
+      <text class="th" x="490" y="20" fill="var(--structure)">โต๊ะทำงาน</text>
+      <text class="lb" x="578" y="276" text-anchor="middle">พื้นที่จำกัด · ที่นี่คือที่ที่เสียเงิน</text>
+
+      <!-- arrows to desk -->
+      <g fill="none" marker-end="url(#arS)" stroke="var(--structure)" stroke-opacity=".8">
+        <path d="M 414 54 L 484 54"/>
+        <path d="M 414 106 L 484 106"/>
+        <path d="M 414 180 L 484 180"/>
+        <path d="M 414 249 L 484 249"/>
+      </g>
+      <text class="lb" x="420" y="46" fill="var(--structure)">อยู่ตลอดเวลา</text>
+      <text class="lb" x="420" y="98" fill="var(--structure)">เมื่อถึงกำหนด</text>
+      <text class="lb" x="420" y="172" fill="var(--structure)">เมื่อเข้าสถานการณ์</text>
+      <text class="lb" x="420" y="241" fill="var(--structure)">หยิบเท่าที่ต้องใช้</text>
     </svg>
     <figcaption>
-      เส้นน้ำเงินของเรา <strong>แบนราบเกือบตลอด</strong> — บีบที่เก็บเล็กลง 40 เท่า มันก็ยังรู้ว่า
-      เรื่องนั้นเกี่ยวกับอะไร ขณะที่รายละเอียดค่อย ๆ หายไป ส่วนวิธีทั่วไปเสียทั้งสองอย่างพร้อมกัน
+      สามในสี่เขต<strong>ไม่ผ่านการค้นหาเลย</strong> — แก่นตัวตนอยู่บนโต๊ะตลอด นัดหมายถูกปลุกด้วยเวลาหรือเหตุการณ์
+      ทักษะเรียกด้วยการจับคู่สถานการณ์ตรง ๆ มีแค่คลังความทรงจำเท่านั้นที่ต้องเดินต้นไม้และเสียแรงนึก
     </figcaption>
   </figure>
 
-  <div class="verdict">
-    <span class="mark">✅</span>
-    <p><strong>ผ่าน</strong> — นี่คือความต่างระหว่าง <em>“ลืมรายละเอียด”</em> กับ <em>“ของหาย”</em>
-    และเป็นสิ่งที่ทั้งโปรเจกต์พยายามทำให้เกิด</p>
-  </div>
-</section>
-
-<!-- ============ 2 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 2</span>
-  <h2>ผู้ช่วยต้องใช้พื้นที่บนโต๊ะเท่าไหร่</h2>
-
-  <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
-    <p>
-      พื้นที่บนโต๊ะคือส่วนที่<strong>เสียเงินจริง</strong> ทุกครั้งที่ผู้ช่วยคิดอะไรสักอย่าง
-      ยิ่งวางของเยอะ ยิ่งจ่ายแพงและยิ่งช้า ถ้าระบบเราตอบดีขึ้นแต่ต้องวางของเต็มโต๊ะเหมือนเดิม
-      ก็ไม่ได้ช่วยอะไร ต้องตอบดีกว่า<em>และ</em>ใช้ที่น้อยกว่า
-    </p>
-  </div>
-
-  <p class="how">
-    <em>ทดสอบยังไง</em> — ให้ที่เก็บเท่ากันทุกระบบ แล้วค่อย ๆ ลดขนาดโต๊ะลง
-    ดูว่าใครยังตอบได้ดีที่พื้นที่เท่าไหร่
-  </p>
-
-  <div class="big">
-    <span class="n">16×</span>
-    <span class="t">
-      ระบบของเราตอบได้ดีกว่า <b>โดยใช้พื้นที่บนโต๊ะน้อยกว่า 16 เท่า</b><br>
-      ที่พื้นที่ขนาดเล็กที่สุดที่ลอง มันตอบถูก 99% ส่วนวิธีทั่วไปแม้ให้พื้นที่มากกว่า 16 เท่า
-      ก็ยังตอบรายละเอียดได้แค่ 76%
-    </span>
-  </div>
-
-  <p>
-    และที่น่าสนใจกว่านั้น: <strong>ให้พื้นที่เพิ่มไปมันก็ไม่เอา</strong>
-    ระบบของเราหยิบมาแค่ประมาณครึ่งเดียวของที่ให้ ส่วนวิธีทั่วไปวางเต็มทุกครั้งที่มีให้
-    — ความต่างระหว่าง <em>“หยิบมาเท่าที่ต้องใช้”</em> กับ <em>“ยัดมาให้มากที่สุดเผื่อไว้”</em>
-  </p>
-
-  <div class="verdict">
-    <span class="mark">✅</span>
-    <p><strong>ผ่าน</strong> — แปลว่าใช้งานจริงจะถูกกว่าและเร็วกว่าอย่างมีนัยสำคัญ</p>
-  </div>
-</section>
-
-<!-- ============ 3 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 3</span>
-  <h2>ยิ่งจำเยอะ จะยิ่งช้าลงไหม</h2>
-
-  <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
-    <p>
-      เราอยากให้ผู้ช่วยจำได้ไม่สิ้นสุด แต่ถ้ายิ่งจำเยอะแล้วยิ่งช้าลงเรื่อย ๆ
-      ความจำระยะยาวก็ใช้ไม่ได้จริง — พอผ่านไปหนึ่งปีมันจะช้าจนไม่มีใครทน
-      <strong>นี่คือข้อที่ตัดสินว่าไอเดียนี้ขยายได้หรือไม่</strong>
-    </p>
-  </div>
-
-  <p class="how">
-    <em>ทดสอบยังไง</em> — เพิ่มจำนวนความทรงจำจาก 280 ชิ้นเป็น 2,240 ชิ้น
-    แล้วนับว่าการนึกออกหนึ่งครั้ง ระบบต้อง “หยิบขึ้นมาดู” กี่ชิ้น
-  </p>
-
   <div class="scroll">
     <table>
-      <thead><tr><th>ความทรงจำทั้งหมด</th><th class="n">วิธีทั่วไป<br><small>ต้องดูกี่ชิ้น</small></th><th class="n">ระบบของเรา</th></tr></thead>
+      <thead>
+        <tr><th>เขต</th><th>เข้าถึงยังไง</th><th>จางได้ไหม</th></tr>
+      </thead>
       <tbody>
-        <tr><td>280 ชิ้น</td><td class="n">157</td><td class="n"><b>47</b></td></tr>
-        <tr><td>560 ชิ้น</td><td class="n">307</td><td class="n"><b>84</b></td></tr>
-        <tr><td>1,120 ชิ้น</td><td class="n">586</td><td class="n"><b>150</b></td></tr>
-        <tr><td>2,240 ชิ้น</td><td class="n">1,192</td><td class="n"><b>247</b></td></tr>
+        <tr><td><strong>แก่นตัวตน</strong></td><td>อยู่บนโต๊ะตลอด ไม่ต้องเรียก</td><td><b>ห้ามจาง</b></td></tr>
+        <tr><td><strong>นัดหมาย</strong></td><td>ตารางปลุก ไม่ใช่การค้น</td><td><b>ห้ามจาง</b></td></tr>
+        <tr><td><strong>ทักษะ / นิสัย</strong></td><td>จับคู่สถานการณ์ตรง ๆ</td><td><span class="fade">จางได้ ถึงระดับหนึ่ง</span></td></tr>
+        <tr><td><strong>คลังความทรงจำ</strong></td><td>เดินต้นไม้เมื่อถูกถาม</td><td><span class="fade">จางได้เต็มที่</span></td></tr>
       </tbody>
     </table>
   </div>
 
   <p>
-    วิธีทั่วไปโตแบบ<strong>ตรงไปตรงมา</strong> — จำมากขึ้นสองเท่า ก็ต้องดูมากขึ้นสองเท่า
-    ระบบเราโตช้ากว่านั้นชัดเจน แต่<strong>ยังไม่ช้าเท่าที่เราตั้งเป้าไว้เอง</strong>
+    <strong>ทำไมต้องแยก</strong> — เพราะในคนมันแยกกันจริง กรณีศึกษาผู้ป่วยที่โด่งดังที่สุดกรณีหนึ่ง
+    คือคนที่<strong>จำเหตุการณ์ใหม่ไม่ได้เลย แต่ยังฝึกทักษะใหม่ได้</strong> และเก่งขึ้นเรื่อย ๆ
+    ทั้งที่จำไม่ได้ว่าเคยฝึก — พิสูจน์ว่าความจำเหตุการณ์กับความจำทักษะเป็นคนละระบบ
+  </p>
+
+  <p class="how">
+    ข้อที่ล็อกไว้แข็งที่สุดคือ <em>แก่นตัวตนกับนัดหมายห้ามจาง</em> —
+    ถ้าตัวตนของ AI จางลงได้เพราะที่เก็บเต็ม แปลว่าพอใช้งานหนัก ๆ มันจะค่อย ๆ กลายเป็นคนละตัว
+    ซึ่งพังทุกอย่างที่อยู่ถัดจากนั้น
+  </p>
+</section>
+
+<!-- ---------- layer 3 ---------- -->
+<section class="layer">
+  <span class="n">ชั้นที่ 3 · ต้นไม้</span>
+  <h2>คลังความทรงจำจัดเป็นต้นไม้ 5 ชั้น</h2>
+
+  <p>
+    ชั้นล่างคือรายละเอียดหยาบ ๆ ของนาทีนั้น ชั้นบนคือบทหนึ่งของชีวิต
+    ทุกชั้นเก็บของแบบเดียวกัน ต่างกันแค่ <strong>ครอบคลุมเวลากว้างแค่ไหน</strong>
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 680 340" role="img" aria-label="ต้นไม้ความจำห้าชั้น จากรายละเอียดนาทีเดียวขึ้นไปถึงเรื่องราวทั้งชีวิต โดยการนึกเริ่มที่ชั้นกลางคือกลุ่มเหตุการณ์ แล้วเดินลงหารายละเอียดหรือขึ้นหาแก่น">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--structure)"/>
+        </marker>
+      </defs>
+
+      <!-- level bands -->
+      <g stroke="currentColor" stroke-opacity=".1">
+        <line x1="150" y1="46"  x2="666" y2="46"/>
+        <line x1="150" y1="110" x2="666" y2="110"/>
+        <line x1="150" y1="174" x2="666" y2="174"/>
+        <line x1="150" y1="238" x2="666" y2="238"/>
+        <line x1="150" y1="302" x2="666" y2="302"/>
+      </g>
+
+      <!-- level labels -->
+      <g text-anchor="end">
+        <text class="nd" x="140" y="42">เรื่องราวทั้งชีวิต</text>
+        <text class="lb" x="140" y="57">ยอดต้นไม้</text>
+        <text class="nd" x="140" y="106">บทหนึ่งของชีวิต</text>
+        <text class="lb" x="140" y="121">เดือน–ปี</text>
+        <text class="nd" x="140" y="170" fill="var(--structure)">กลุ่มเหตุการณ์</text>
+        <text class="lb" x="140" y="185" fill="var(--structure)">วัน–สัปดาห์</text>
+        <text class="nd" x="140" y="234">เหตุการณ์เดี่ยว</text>
+        <text class="lb" x="140" y="249">ชั่วโมง</text>
+        <text class="nd" x="140" y="298">รายละเอียดดิบ</text>
+        <text class="lb" x="140" y="313">นาที</text>
+      </g>
+
+      <!-- edges -->
+      <g stroke="currentColor" stroke-opacity=".3" fill="none">
+        <path d="M 400 52 L 300 104"/><path d="M 400 52 L 400 104"/><path d="M 400 52 L 500 104"/>
+        <path d="M 300 116 L 240 168"/><path d="M 300 116 L 330 168"/>
+        <path d="M 400 116 L 400 168"/><path d="M 400 116 L 460 168"/>
+        <path d="M 500 116 L 540 168"/><path d="M 500 116 L 610 168"/>
+        <path d="M 240 180 L 210 232"/><path d="M 240 180 L 265 232"/>
+        <path d="M 400 180 L 375 232"/><path d="M 400 180 L 425 232"/>
+        <path d="M 540 180 L 515 232"/><path d="M 540 180 L 565 232"/>
+        <path d="M 210 244 L 200 296"/><path d="M 265 244 L 272 296"/>
+        <path d="M 375 244 L 368 296"/><path d="M 425 244 L 432 296"/>
+        <path d="M 515 244 L 508 296"/><path d="M 565 244 L 572 296"/>
+      </g>
+
+      <!-- nodes -->
+      <g fill="var(--surface)" stroke="currentColor" stroke-opacity=".55">
+        <circle cx="400" cy="46" r="7"/>
+        <circle cx="300" cy="110" r="6"/><circle cx="400" cy="110" r="6"/><circle cx="500" cy="110" r="6"/>
+        <circle cx="210" cy="238" r="5"/><circle cx="265" cy="238" r="5"/>
+        <circle cx="375" cy="238" r="5"/><circle cx="425" cy="238" r="5"/>
+        <circle cx="515" cy="238" r="5"/><circle cx="565" cy="238" r="5"/>
+        <circle cx="200" cy="302" r="4"/><circle cx="272" cy="302" r="4"/>
+        <circle cx="368" cy="302" r="4"/><circle cx="432" cy="302" r="4"/>
+        <circle cx="508" cy="302" r="4"/><circle cx="572" cy="302" r="4"/>
+      </g>
+      <g fill="var(--structure)">
+        <circle cx="240" cy="174" r="6"/><circle cx="330" cy="174" r="6"/>
+        <circle cx="400" cy="174" r="6"/><circle cx="460" cy="174" r="6"/>
+        <circle cx="540" cy="174" r="6"/><circle cx="610" cy="174" r="6"/>
+      </g>
+
+      <!-- entry marker -->
+      <path d="M 666 152 L 666 196" stroke="var(--structure)" stroke-width="2"/>
+      <text class="lb" x="660" y="146" text-anchor="end" fill="var(--structure)">การนึกเริ่มที่ชั้นนี้</text>
+
+      <!-- direction arrows -->
+      <g stroke="var(--structure)" fill="none" marker-end="url(#ar2)" stroke-width="1.4">
+        <path d="M 630 186 L 630 228"/>
+        <path d="M 630 162 L 630 120"/>
+      </g>
+      <text class="lb" x="622" y="216" text-anchor="end" fill="var(--structure)">ลงหารายละเอียด</text>
+      <text class="lb" x="622" y="134" text-anchor="end" fill="var(--structure)">ขึ้นหาแก่น</text>
+    </svg>
+    <figcaption>
+      <strong>การนึกไม่ได้เริ่มที่ยอดต้นไม้</strong> แต่เริ่มที่ชั้นกลาง — “กลุ่มเหตุการณ์”
+      แล้วเดินลงถ้าต้องการรายละเอียด หรือเดินขึ้นถ้าต้องการภาพรวม
+      จุดนี้ไม่ได้เดาเอา งานวิจัยเรื่องความจำอัตชีวประวัติพบว่าคนก็เริ่มนึกจากชั้นนี้เหมือนกัน
+    </figcaption>
+  </figure>
+
+  <h3>ต้นไม้จริงจากการรัน 200 วัน</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>สิ่งที่วัด</th><th class="n">ค่า</th><th>หมายความว่า</th></tr></thead>
+      <tbody>
+        <tr><td>เหตุการณ์เดี่ยวที่เก็บ</td><td class="n">404</td><td>ทุกอย่างที่ผ่านเข้ามา</td></tr>
+        <tr><td>กลุ่มเหตุการณ์ที่เกิดขึ้นเอง</td><td class="n"><b>72</b></td><td>ระบบจัดกลุ่มเอง ไม่มีใครสั่ง</td></tr>
+        <tr><td>นิสัยที่ตกผลึกเอง</td><td class="n"><b>7</b></td><td>ย้ายไปอยู่เขตทักษะ</td></tr>
+        <tr><td>กิ่งเฉลี่ยต่อกลุ่ม</td><td class="n">6.5</td><td>ไม่กว้างจนต้องไล่ดูเยอะ</td></tr>
+        <tr><td>กิ่งมากสุดที่ยอมให้</td><td class="n">12</td><td>เกินนี้ระบบแตกกลุ่มให้เอง</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="how">
+    ตัวเลข “กิ่งต่อกลุ่ม” คือปุ่มที่ตัดสินรูปร่างต้นไม้ทั้งต้น — <em>กิ่งน้อย</em> ต้นไม้จะสูงและผอม
+    ต้องเดินหลายก้าวกว่าจะถึง <em>กิ่งเยอะ</em> ต้นไม้จะเตี้ยและกว้าง เดินน้อยก้าวแต่แต่ละก้าวต้องเทียบของเยอะ
+    ค่า 12 คือจุดที่วัดแล้วได้สมดุลดีที่สุด
+  </p>
+</section>
+
+<!-- ---------- layer 4 ---------- -->
+<section class="layer">
+  <span class="n">ชั้นที่ 4 · เครื่องจักรสถานะ</span>
+  <h2>ทุกการทำงานเดินตามผังที่ตายตัว</h2>
+
+  <p>
+    ระบบมีเครื่องจักรสถานะ 3 ตัว แต่ละตัวคือผังที่บอกว่า “ตอนนี้อยู่สถานะไหน
+    และไปต่อได้ที่ไหนบ้าง” — <strong>ทำแบบนี้เพราะมันทำให้คุมต้นทุนได้</strong>
+    ถ้าปล่อยให้ระบบทำอะไรก็ได้ตามใจ เราจะไม่มีทางรู้ว่าครั้งหนึ่งจะแพงแค่ไหน
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 680 210" role="img" aria-label="ผังการนึกหกสถานะ จากว่าง ไปรับสิ่งเร้า แล้วแยกเป็นของที่อยู่บนโต๊ะแล้วหรือต้องเดินต้นไม้ จากนั้นหยิบเข้าโต๊ะและเก็บกวาด โดยมีสถานะเดียวที่เสียแรงนึกและสถานะเดียวที่กินพื้นที่โต๊ะ">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <g fill="none" stroke="currentColor" stroke-opacity=".45">
+        <rect x="14"  y="76" width="76" height="38" rx="2"/>
+        <rect x="122" y="76" width="76" height="38" rx="2"/>
+        <rect x="230" y="24" width="104" height="38" rx="2"/>
+        <rect x="446" y="76" width="94" height="38" rx="2"/>
+        <rect x="572" y="76" width="94" height="38" rx="2"/>
+      </g>
+      <rect x="230" y="128" width="104" height="38" rx="2" fill="none" stroke="var(--fade)" stroke-width="1.6"/>
+
+      <text class="nd" x="52"  y="100" text-anchor="middle">ว่าง</text>
+      <text class="nd" x="160" y="100" text-anchor="middle">รับคำถาม</text>
+      <text class="nd" x="282" y="48"  text-anchor="middle">อยู่บนโต๊ะแล้ว</text>
+      <text class="nd" x="282" y="152" text-anchor="middle" fill="var(--fade)">เดินต้นไม้</text>
+      <text class="nd" x="493" y="100" text-anchor="middle" fill="var(--structure)">หยิบเข้าโต๊ะ</text>
+      <text class="nd" x="619" y="100" text-anchor="middle">เก็บกวาด</text>
+
+      <g stroke="currentColor" stroke-opacity=".5" fill="none" marker-end="url(#ar3)">
+        <path d="M 92 95 L 116 95"/>
+        <path d="M 200 88 C 216 88 216 43 224 43"/>
+        <path d="M 200 102 C 216 102 216 147 224 147"/>
+        <path d="M 336 43 C 400 43 400 88 440 92"/>
+        <path d="M 336 147 C 400 147 400 102 440 98"/>
+        <path d="M 542 95 L 566 95"/>
+        <path d="M 619 118 C 619 190 52 190 52 120"/>
+      </g>
+
+      <text class="lb" x="352" y="190" text-anchor="middle">กลับสู่ว่าง — บันทึกว่าใช้อะไรไป</text>
+      <text class="lb" x="282" y="182" text-anchor="middle" fill="var(--fade)">สถานะเดียวที่เสียแรงนึก</text>
+      <text class="lb" x="493" y="130" text-anchor="middle" fill="var(--structure)">สถานะเดียวที่กินพื้นที่โต๊ะ</text>
+      <text class="lb" x="282" y="18"  text-anchor="middle">ตัวตน · นัดหมาย · ทักษะ — ฟรี</text>
+    </svg>
+    <figcaption>
+      ประโยชน์ของผังนี้อยู่ที่<strong>มีสถานะเดียวที่เสียแรงนึก และสถานะเดียวที่กินพื้นที่โต๊ะ</strong>
+      เพดานสองอย่างนี้จึงตั้งเป็นตัวเลขได้ตรง ๆ และรับประกันได้ว่าจะไม่มีคำถามไหนแพงเกินที่ตั้งไว้
+    </figcaption>
+  </figure>
+
+  <h3>อีกสองตัว</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>เครื่องจักร</th><th>เดินยังไง</th><th>ทำไมต้องเป็นผัง</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>นัดหมาย</strong></td>
+          <td>ตั้งไว้ → ถึงกำหนด → (ค้างไว้ถ้ายังไม่เสร็จ) → ปิดงาน</td>
+          <td>สถานะ “ค้างไว้” คือสิ่งที่ทำให้เรื่องที่ทำไม่เสร็จยังผุดขึ้นมาเอง แบบที่คนเป็น</td>
+        </tr>
+        <tr>
+          <td><strong>จัดระเบียบตอนพัก</strong></td>
+          <td>ทบทวน → หานิสัย → จัดต้นไม้ → บีบให้พอดีที่เก็บ</td>
+          <td>ทำเป็นรอบ ไม่ทำทุกครั้งที่รับข้อมูล — คนก็รวบยอดตอนหลับ ไม่ใช่ตอนกำลังเจอเรื่อง</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="how">
+    ผังพวกนี้คือ <em>เครื่องมือที่ AI เลือกใช้เองได้</em> ในอนาคต — มันจะเป็นคนตัดสินว่า
+    “คำถามนี้ควรเดินลงหรือเดินขึ้น” และ “พอหรือยัง” ตอนนี้เรายังใช้ตัวตัดสินใจแบบง่ายแทนไปก่อน
+    เพื่อให้วัดได้ว่าโครงสร้างเปล่า ๆ ให้ผลเท่าไหร่ — เวลาต่อ AI จริงจะได้รู้ว่าส่วนไหนคือของ AI
+  </p>
+</section>
+
+<!-- ---------- layer 5 ---------- -->
+<section class="layer">
+  <span class="n">ชั้นที่ 5 · ที่อยู่</span>
+  <h2>ที่อยู่ของความทรงจำ ไม่มีวันชี้ไปที่ว่าง</h2>
+
+  <p>
+    ทุกความทรงจำมี <strong>ที่อยู่</strong> ที่คำนวณมาจากเนื้อหาของมันเอง — หลักการเดียวกับที่ blockchain ใช้
+    เนื้อหาเดียวกันได้ที่อยู่เดียวกันเสมอ
+  </p>
+
+  <p>
+    ปัญหาคือ เมื่อที่เก็บตึงและความทรงจำถูก<strong>ยุบรวม</strong>เข้าไปในกลุ่มแม่ของมัน
+    ที่อยู่เดิมจะชี้ไปที่ไหน? คำตอบคือมี <strong>ตารางส่งต่อ</strong> ที่ <em>เพิ่มได้อย่างเดียว ลบไม่ได้</em>
+    — ที่อยู่เก่าถูกส่งต่อไปยังของที่ยังอยู่
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 680 230" role="img" aria-label="เปรียบเทียบที่อยู่หนึ่งที่อยู่ในวันที่สี่สิบกับวันที่สองร้อย วันแรกชี้ไปยังความทรงจำเต็มความคมชัด วันหลังความทรงจำถูกยุบเข้ากลุ่มแม่แล้วแต่ที่อยู่เดิมยังส่งต่อไปถึงและยังได้คำตอบ ไม่มีคำว่าไม่พบ">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <text class="th" x="14" y="18">วันที่ 40</text>
+      <text class="th" x="360" y="18">วันที่ 200 — หลังบีบที่เก็บ 40 เท่า</text>
+      <line x1="340" y1="30" x2="340" y2="206" stroke="currentColor" stroke-opacity=".15"/>
+
+      <!-- left -->
+      <rect x="14" y="40" width="120" height="34" rx="2" fill="none" stroke="var(--structure)" stroke-width="1.4"/>
+      <text class="nd" x="74" y="61" text-anchor="middle" fill="var(--structure)">ที่อยู่ 7f3a…</text>
+      <path d="M 74 78 L 74 108" stroke="currentColor" stroke-opacity=".5" fill="none" marker-end="url(#ar4)"/>
+      <rect x="14" y="114" width="120" height="46" rx="2" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+      <text class="nd" x="74" y="134" text-anchor="middle">ความทรงจำนั้น</text>
+      <text class="lb" x="74" y="150" text-anchor="middle">คมชัดเต็มที่</text>
+      <text class="lb" x="74" y="182" text-anchor="middle">“ประชุมงบวันอังคาร”</text>
+
+      <!-- right -->
+      <rect x="360" y="40" width="120" height="34" rx="2" fill="none" stroke="var(--structure)" stroke-width="1.4"/>
+      <text class="nd" x="420" y="61" text-anchor="middle" fill="var(--structure)">ที่อยู่ 7f3a…</text>
+      <text class="lb" x="420" y="90" text-anchor="middle">ที่อยู่เดิม ไม่เปลี่ยน</text>
+
+      <path d="M 486 57 L 528 57" stroke="var(--structure)" stroke-opacity=".8" fill="none" marker-end="url(#ar4)"/>
+      <text class="lb" x="507" y="48" text-anchor="middle" fill="var(--structure)">ส่งต่อ</text>
+
+      <rect x="534" y="40" width="132" height="34" rx="2" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+      <text class="nd" x="600" y="61" text-anchor="middle">กลุ่มแม่ที่ยังอยู่</text>
+
+      <path d="M 600 78 L 600 108" stroke="currentColor" stroke-opacity=".5" fill="none" marker-end="url(#ar4)"/>
+      <rect x="534" y="114" width="132" height="46" rx="2" fill="none" stroke="var(--fade)" stroke-width="1.4"/>
+      <text class="nd" x="600" y="134" text-anchor="middle" fill="var(--fade)">ยังได้คำตอบ</text>
+      <text class="lb" x="600" y="150" text-anchor="middle">แต่หยาบลง</text>
+      <text class="lb" x="600" y="182" text-anchor="middle">“ช่วงเรื่องงบ”</text>
+
+      <text class="lb" x="420" y="134" text-anchor="middle">ไม่มีสถานะ</text>
+      <text class="lb" x="420" y="150" text-anchor="middle">“ไม่พบ”</text>
+    </svg>
+    <figcaption>
+      กฎที่ล็อกไว้: <strong>ที่อยู่ต้องตอบเสมอ ห้ามคืนค่าว่าง</strong> สิ่งที่เปลี่ยนไม่ใช่ว่า
+      <em>ตอบได้หรือไม่</em> แต่คือ <em>คำตอบคมแค่ไหน</em>
+    </figcaption>
+  </figure>
+
+  <h3>ทดสอบข้อนี้ตรง ๆ</h3>
+  <div class="big">
+    <span class="num">110<span style="color:var(--ink-3)">/110</span></span>
+    <span class="t">
+      จดที่อยู่ทั้งหมดที่ระบบแจกไว้ในวันที่ 40 ไว้ <b>110 ที่อยู่</b><br>
+      ปล่อยให้ใช้ชีวิตต่อจนวันที่ 200 ภายใต้ที่เก็บที่คับมาก จนในต้นไม้เหลือของแค่ 38 ก้อน<br>
+      แล้วกลับไปเรียกที่อยู่ทั้ง 110 นั้น — <b>ตอบได้ครบทั้ง 110 ไม่มีอันไหนสูญ</b>
+    </span>
+  </div>
+
+  <p>
+    ในจำนวนนั้น 53 ที่อยู่คืนคำตอบมาแบบแทบไม่เหลือรายละเอียด — คุณจะรู้ว่าเรื่องนั้น<em>อยู่ตรงไหนของชีวิต</em>
+    และ<em>เกี่ยวกับอะไร</em> แต่ไม่ได้ตัวเหตุการณ์กลับมา
+  </p>
+
+  <p>
+    <strong>และนี่คือที่ที่คำว่า “เจือจาง” อยู่ในระบบนี้</strong> — มันไม่ใช่หัวข้อ ไม่ใช่เป้าหมาย
+    มันคือ<strong>คุณสมบัติข้อหนึ่งของที่อยู่</strong>: ที่อยู่ตอบเสมอ และความคมของคำตอบขึ้นกับว่า
+    สมองที่ตั้งไว้ใหญ่แค่ไหนและเรื่องนั้นถูกใช้บ่อยแค่ไหน
+  </p>
+</section>
+
+<!-- ══════════════════ PART II ══════════════════ -->
+<div class="part">
+  <span class="tag">ภาคสอง</span>
+  <h2>หลักฐาน</h2>
+</div>
+
+<p>
+  โครงสร้างข้างบนสวยบนกระดาษได้ทั้งนั้น ภาคนี้คือการวัดว่ามันทำงานจริงไหม
+  ทุกหัวข้อจะบอกก่อนว่า<strong>กำลังทดสอบคุณสมบัติข้อไหนของโครงสร้าง</strong>
+</p>
+
+<!-- E1 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · โครงสร้างเกิดขึ้นเองได้ไหม</span>
+  <h2>ไม่มีใครวาดต้นไม้ให้ มันต้องโตขึ้นมาเอง</h2>
+
+  <div class="why">
+    <b>ทำไมข้อนี้สำคัญ</b>
+    <p>
+      ถ้าต้องมีคนมานั่งบอกว่า “อันนี้เป็นนิสัยนะ” “อันนี้จัดกลุ่มกับอันนี้นะ”
+      มันก็ไม่ใช่ความจำ มันคือการตั้งค่า และมันจะไม่มีทางขยายไปใช้กับ AI ตัวไหนได้จริง
+      <strong>โครงสร้างต้องโตขึ้นมาจากสิ่งที่มันเจอเอง</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <strong>ทดสอบยังไง</strong> — ปล่อยให้ใช้ชีวิตในโลกจำลอง 200 วัน มีกิจวัตรที่เกิดซ้ำ ๆ
+    ปนกับเรื่องจรที่เกิดครั้งเดียวจำนวนมาก แล้วดูว่าโครงสร้างที่โตขึ้นมาหน้าตาเป็นยังไง
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>โครงสร้างที่เกิดขึ้นเอง</th><th class="n">จำนวน</th><th>ความถูกต้อง</th></tr></thead>
+      <tbody>
+        <tr><td>กลุ่มเหตุการณ์ (ชั้นกลางของต้นไม้)</td><td class="n"><b>72</b></td><td>จาก 404 เหตุการณ์เดี่ยว</td></tr>
+        <tr><td>นิสัยที่ตกผลึกเป็นทักษะ</td><td class="n"><b>2</b></td><td>จากกิจวัตรที่เกิดซ้ำ 21 ครั้ง</td></tr>
+        <tr><td>เรื่องจรที่ถูกเข้าใจผิดว่าเป็นนิสัย</td><td class="n"><b>0</b></td><td>ไม่พลาดเลย</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="how">
+    เกณฑ์แยกนิสัยมี 2 ข้อ และต้องผ่านทั้งคู่: <em>เกิดบ่อยพอ</em> และ <em>เกิดซ้ำในรูปแบบเดิมจริง ๆ</em>
+    — ถ้าใช้แค่ข้อแรก หัวข้อที่ยุ่ง ๆ จะกลายเป็นนิสัยหมด ถ้าใช้แค่ข้อหลัง เรื่องเด่นเรื่องเดียวก็จะถูกยกเป็นนิสัย
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — และผลพลอยได้คือพอนิสัยย้ายไปอยู่เขตทักษะแล้ว
+    คำถามว่า “ปกติคนนี้ทำอะไร” <strong>ตอบได้โดยไม่ต้องเดินต้นไม้เลย</strong>
+    เหมือนที่คนไม่ต้องนึกย้อนทุกเช้าเพื่อจะรู้ว่าตัวเองชงกาแฟ</p>
+  </div>
+</section>
+
+<!-- E2 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · โครงสร้างยืดหยุ่นตามโลกไหม</span>
+  <h2>โลกที่ซับซ้อนกว่า ต้นไม้ต้องลึกกว่า</h2>
+
+  <div class="why">
+    <b>ทำไมข้อนี้สำคัญ</b>
+    <p>
+      ถ้าระบบทำได้แค่ต้นไม้ 3 ชั้นตายตัว แปลว่าต้องมีคนไปบอกล่วงหน้าทุกครั้งว่า
+      งานนี้มีโครงสร้างกี่ชั้น — ก็กลับไปเป็นการตั้งค่าอีก
+      <strong>มันต้องอ่านความลึกออกมาจากสิ่งที่เห็นเอง</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <strong>ทดสอบยังไง</strong> — สร้างโลก 4 แบบที่ลึก 2, 3, 4 และ 5 ชั้น ขนาดพอ ๆ กัน
+    (เช่น 3 ชั้น = สัตว์ → หมา → หมาตัวนั้น · 4 ชั้น = สิ่งมีชีวิต → สัตว์ → หมา → หมาตัวนั้น)
+    แล้วดูว่าต้นไม้ที่ระบบสร้างขึ้นเองตามได้กี่ชั้น
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>โลกที่ให้</th><th class="n">ระบบแยกชั้นออกได้</th><th>ผล</th></tr></thead>
+      <tbody>
+        <tr><td>ลึก 2 ชั้น</td><td class="n"><b>2 จาก 2</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 3 ชั้น</td><td class="n"><b>3 จาก 3</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 4 ชั้น</td><td class="n"><b>4 จาก 4</b></td><td>ตามได้ครบ</td></tr>
+        <tr><td>ลึก 5 ชั้น</td><td class="n">4 จาก 5</td><td>สองชั้นล่างสุดกองรวมกัน</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="how">
+    เพดานอยู่ที่ราว 4–5 ชั้น เพราะพอลึกเกินไป ของที่อยู่ติดกันจะคล้ายกันจนแยกไม่ออก
+    <strong>บันทึกไว้เป็นขีดจำกัดที่วัดได้ ไม่เอามาเล่าเป็นความสำเร็จ</strong>
+  </p>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน มีเพดาน</strong> — ต้นไม้ไม่ได้ถูกล็อกไว้ที่ 3 ชั้น มันปรับตามข้อมูลได้จริงถึง 4 ชั้น</p>
+  </div>
+</section>
+
+<!-- E3 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · โครงสร้างทำให้หาของเร็วขึ้นไหม</span>
+  <h2>นี่คือเหตุผลทั้งหมดที่ต้องมีต้นไม้</h2>
+
+  <div class="why">
+    <b>ทำไมข้อนี้สำคัญ</b>
+    <p>
+      กองของแบน ๆ ต้องไล่ดูทั้งกอง ต้นไม้ควรจะไม่ต้อง
+      ถ้าวัดแล้วต้นไม้ก็ยังต้องไล่ดูพอ ๆ กับกอง แปลว่าโครงสร้างทั้งหมดที่สร้างมา<strong>ไม่ได้ซื้ออะไรเลย</strong>
+      — <strong>นี่คือข้อที่ตัดสินว่าไอเดียนี้ขยายได้หรือไม่</strong>
+    </p>
+  </div>
+
+  <p class="how">
+    <strong>ทดสอบยังไง</strong> — เพิ่มจำนวนความทรงจำจาก 280 ชิ้นเป็น 2,240 ชิ้น
+    แล้วนับว่าการนึกหนึ่งครั้ง ต้อง “หยิบขึ้นมาเทียบ” กี่ชิ้น
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>ความทรงจำทั้งหมด</th><th class="n">กองแบน ๆ</th><th class="n">ต้นไม้</th><th class="n">ประหยัด</th></tr></thead>
+      <tbody>
+        <tr><td>280 ชิ้น</td><td class="n">157</td><td class="n"><b>47</b></td><td class="n">3.3×</td></tr>
+        <tr><td>560 ชิ้น</td><td class="n">307</td><td class="n"><b>84</b></td><td class="n">3.7×</td></tr>
+        <tr><td>1,120 ชิ้น</td><td class="n">586</td><td class="n"><b>150</b></td><td class="n">3.9×</td></tr>
+        <tr><td>2,240 ชิ้น</td><td class="n">1,192</td><td class="n"><b>247</b></td><td class="n">4.8×</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    กองแบน ๆ โตแบบตรงไปตรงมา — จำมากขึ้นสองเท่า ก็ต้องดูมากขึ้นสองเท่า
+    ต้นไม้โตช้ากว่านั้นชัดเจน และ<strong>ยิ่งความจำเยอะ ต้นไม้ยิ่งได้เปรียบมากขึ้น</strong>
+    แต่ยังโตเร็วกว่าเป้าที่เราตั้งไว้เอง
   </p>
 
   <h3>และเจอเรื่องที่ไม่คาดคิด</h3>
@@ -341,87 +838,187 @@
   </p>
   <div class="scroll">
     <table>
-      <thead><tr><th>พยายามนึก</th><th class="n">ต้องดูกี่ชิ้น</th><th class="n">จำแก่นได้</th><th class="n">จำรายละเอียดได้</th></tr></thead>
+      <thead><tr><th>พยายามนึก</th><th class="n">ต้องเทียบกี่ชิ้น</th><th class="n">ได้แก่นเรื่อง</th><th class="n">ได้รายละเอียด</th></tr></thead>
       <tbody>
         <tr><td>นิดเดียว (4 ก้าว)</td><td class="n"><b>90</b></td><td class="n"><b>98%</b></td><td class="n">74%</td></tr>
         <tr><td>เต็มที่ (32 ก้าว)</td><td class="n">150</td><td class="n">98%</td><td class="n"><b>96%</b></td></tr>
-        <tr><td><em>เทียบ: ค้นทั้งโกดัง</em></td><td class="n">586</td><td class="n">—</td><td class="n">—</td></tr>
+        <tr><td>เทียบ: ไล่ทั้งกอง</td><td class="n">586</td><td class="n">—</td><td class="n">—</td></tr>
       </tbody>
     </table>
   </div>
   <p>
     <strong>แก่นเรื่องมาทันทีแทบไม่ต้องพยายาม รายละเอียดคือสิ่งที่ความพยายามซื้อมา</strong>
-    — ตรงกับความรู้สึกตอนคนนึกอะไรไม่ออก เรารู้คร่าว ๆ ทันที แต่ต้องนึกอยู่พักหนึ่งกว่าจะได้รายละเอียด
+    — ซึ่งเป็นผลโดยตรงจากการที่การนึกเริ่มที่ชั้นกลางของต้นไม้ ชั้นนั้น<em>คือ</em>แก่นเรื่องอยู่แล้ว
+    ต้องเดินลงเท่านั้นถึงจะได้รายละเอียด
   </p>
 
-  <div class="verdict no">
+  <div class="verdict part-only">
     <span class="mark">⚠️</span>
-    <p><strong>ผ่านครึ่งเดียว</strong> — เร็วกว่าวิธีเดิม 4–6 เท่าจริง แต่<strong>ยังไม่ถึงเป้าที่เราตั้งไว้เอง</strong>
-    ต้องตัดสินก่อนไปต่อว่า จะแก้โครงสร้างให้ถึง หรือยอมรับว่าเป้าที่ตั้งไว้ไม่สมเหตุสมผลตั้งแต่แรก</p>
+    <p><strong>ผ่านครึ่งเดียว</strong> — ต้นไม้ประหยัดกว่ากองแบน ๆ จริง 3–5 เท่า และได้เปรียบขึ้นเรื่อย ๆ
+    แต่<strong>ยังไม่ถึงเป้าที่เราตั้งไว้เอง</strong> ต้องตัดสินก่อนไปต่อว่า จะแก้โครงสร้างให้ถึง
+    หรือยอมรับว่าเป้าที่ตั้งไว้ไม่สมเหตุสมผลตั้งแต่แรก</p>
   </div>
 </section>
 
-<!-- ============ 4 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 4</span>
-  <h2>มันจำ “นิสัย” ได้เองไหม</h2>
+<!-- E4 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · โครงสร้างทำให้โต๊ะเล็กลงไหม</span>
+  <h2>เก็บที่อยู่ ไม่ใช่เก็บของ</h2>
 
   <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
+    <b>ทำไมข้อนี้สำคัญ</b>
     <p>
-      เป้าหมายระยะยาวคือผู้ช่วยที่<strong>มีตัวตนของตัวเอง</strong> — รู้ว่าเจ้าของชอบอะไร ทำอะไรเป็นประจำ
-      ถ้าต้องมานั่งบอกมันทีละอย่างว่า “นี่คือนิสัยของฉัน” ก็ไม่ใช่ความจำ มันคือการตั้งค่า
-      <strong>มันต้องสังเกตเอาเองได้</strong>
+      พื้นที่บนโต๊ะคือส่วนที่<strong>เสียเงินจริง</strong>ทุกครั้งที่ AI คิด
+      เหตุผลหลักที่ต้องมีต้นไม้ของที่อยู่ ก็เพื่อจะได้ไม่ต้องยกทุกอย่างขึ้นโต๊ะ
+      — ถ้าสุดท้ายยังต้องยัดเต็มโต๊ะเหมือนเดิม โครงสร้างก็ไม่ได้ทำงานตามที่ออกแบบไว้
     </p>
   </div>
 
   <p class="how">
-    <em>ทดสอบยังไง</em> — ในโลกจำลอง 200 วัน มีทั้งกิจวัตรที่เกิดซ้ำ ๆ (เช่น ตอนเช้าชงกาแฟแล้วเปิดอีเมล)
-    ปนกับเรื่องจรที่เกิดครั้งเดียวจำนวนมาก แล้วดูว่ามันแยกออกไหมว่าอันไหนเป็นนิสัย
+    <strong>ทดสอบยังไง</strong> — ให้ที่เก็บเท่ากันทุกระบบ แล้วค่อย ๆ ลดขนาดโต๊ะลง
+    ดูว่าใครยังตอบได้ดีที่พื้นที่เท่าไหร่
   </p>
+
+  <div class="big">
+    <span class="num">16×</span>
+    <span class="t">
+      ต้นไม้ตอบได้ดีกว่าโดยใช้พื้นที่บนโต๊ะ <b>น้อยกว่า 16 เท่า</b><br>
+      ที่โต๊ะเล็กที่สุดที่ลอง มันตอบถูก 99% ส่วนกองแบน ๆ แม้ให้พื้นที่มากกว่า 16 เท่า
+      ก็ยังตอบรายละเอียดได้แค่ 76%
+    </span>
+  </div>
 
   <p>
-    ผลคือ <strong>มันสร้างนิสัยขึ้นมาเอง 2 อย่าง</strong> จากกิจวัตรที่เกิดซ้ำ 21 ครั้ง
-    และ<strong>ไม่ไปหยิบเรื่องจรมาปนเลยแม้แต่อันเดียว</strong>
-  </p>
-
-  <p class="how">
-    เกณฑ์ที่มันใช้แยกมี 2 ข้อ และต้องผ่านทั้งคู่: <em>เกิดบ่อยพอ</em> และ <em>เกิดซ้ำในรูปแบบเดิมจริง ๆ</em>
-    — ถ้าใช้แค่ข้อแรก หัวข้อที่ยุ่งจะกลายเป็นนิสัย ถ้าใช้แค่ข้อหลัง เรื่องเด่นเรื่องเดียวก็จะถูกยกเป็นนิสัย
+    และที่น่าสนใจกว่านั้น: <strong>ให้พื้นที่เพิ่มไปมันก็ไม่เอา</strong>
+    ต้นไม้หยิบมาแค่ราวครึ่งเดียวของที่ให้ ส่วนกองแบน ๆ วางเต็มทุกครั้งที่มีให้
+    — ความต่างระหว่าง <em>“รู้ว่าจะไปหยิบตรงไหน”</em> กับ <em>“ยัดมาให้มากที่สุดเผื่อไว้”</em>
   </p>
 
   <div class="verdict">
     <span class="mark">✅</span>
-    <p><strong>ผ่าน</strong> — และการที่มันจำนิสัยได้ ทำให้มันตอบ “คนนี้ปกติทำอะไร” ได้โดย<strong>ไม่ต้องไปค้นความทรงจำเลย</strong>
-    เหมือนที่คนไม่ต้องนึกย้อนทุกเช้าเพื่อจะรู้ว่าตัวเองชงกาแฟ</p>
+    <p><strong>ผ่าน</strong> — นี่คือคุณสมบัติที่แปลเป็นเงินและความเร็วได้ตรงที่สุดเวลาใช้งานจริง</p>
   </div>
 </section>
 
-<!-- ============ 5 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 5</span>
-  <h2>มันลืมเหมือนคนจริง ๆ หรือแค่คล้าย</h2>
+<!-- E5 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · เมื่อที่เก็บตึง อะไรคือสิ่งที่เหลือ</span>
+  <h2>สิ่งที่รอด คือโครงสร้าง</h2>
 
   <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
+    <b>ทำไมข้อนี้สำคัญ</b>
     <p>
-      คำถามก่อนหน้าทั้งหมดถามว่า <em>“ระบบทำงานไหม”</em> ข้อนี้ถามอีกอย่าง —
-      <strong>“มันพังเหมือนที่คนพังไหม”</strong> ซึ่งยากกว่ามาก
-      งาน AI เรื่องความจำเกือบทุกเจ้าเคลมว่า “ได้แรงบันดาลใจจากสมองมนุษย์” แล้วจบแค่นั้น
-      ถ้าเราแสดงได้ว่ามันสร้าง<em>รูปแบบที่งานวิจัยบันทึกไว้จริง</em> นั่นคือคนละชั้นของข้ออ้าง
+      SomaOS ให้ตั้ง <strong>“ขนาดสมอง”</strong> ได้ — ตั้งใหญ่ก็จำได้ละเอียด ตั้งเล็กก็ต้องยอมเสียอะไรบางอย่าง
+      คำถามคือ<strong>เสียอะไรก่อน</strong> ถ้าโครงสร้างพังไปพร้อมกับรายละเอียด
+      แปลว่าเราแค่สร้างกองของที่ทิ้งช้ากว่าเดิม ทั้งภาคหนึ่งก็ไม่มีความหมาย
     </p>
   </div>
 
   <p class="how">
-    <em>ทดสอบยังไง</em> — ในผู้ป่วยโรคความจำเสื่อมชนิดหนึ่ง มีรูปแบบที่ถูกบันทึกไว้ซ้ำ ๆ ในงานวิจัย:
-    ผู้ป่วยจะ<em>ลืมชื่อเฉพาะก่อนลืมชื่อหมวด</em> — พูดว่า “สัตว์” ได้อีกนาน หลังจากที่พูดว่า “ม้าลาย” ไม่ได้แล้ว
-    เราเลยบีบที่เก็บลงเรื่อย ๆ แล้วถามของชิ้นเดิมสามแบบ ตั้งคำถามให้มี 6 ตัวเลือกเท่ากันทุกระดับ
-    (เดาสุ่มได้ 17% เท่ากันหมด — เหมือนวิธีที่ใช้ทดสอบผู้ป่วยจริง)
+    <strong>ทดสอบยังไง</strong> — บีบที่เก็บลง 40 เท่า แล้วนับสองอย่างแยกกัน:
+    <em>กลุ่มเหตุการณ์</em> (ตัวโครงสร้าง) เหลือกี่กลุ่ม และ <em>เหตุการณ์เดี่ยว</em> (ตัวรายละเอียด) เหลือกี่ชิ้น
   </p>
 
   <div class="scroll">
     <table>
-      <thead><tr><th>ที่เก็บ</th><th class="n">“ตัวไหน”<br><small>เฉพาะเจาะจง</small></th><th class="n">“ของชนิดไหน”<br><small>ระดับกลาง</small></th><th class="n">“ตระกูลไหน”<br><small>หมวดกว้าง</small></th></tr></thead>
+      <thead><tr><th>ขนาดสมองที่ตั้ง</th><th class="n">กลุ่มเหตุการณ์<br><small>โครงสร้าง</small></th><th class="n">เหตุการณ์เดี่ยว<br><small>รายละเอียด</small></th></tr></thead>
+      <tbody>
+        <tr><td>200 KB</td><td class="n"><b>72</b></td><td class="n">404</td></tr>
+        <tr><td>50 KB</td><td class="n"><b>68</b></td><td class="n">404</td></tr>
+        <tr><td>12 KB</td><td class="n"><b>48</b></td><td class="n">272</td></tr>
+        <tr><td>5 KB <small>(เล็กลง 40 เท่า)</small></td><td class="n"><b>20</b></td><td class="n"><span class="fade">11</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    บีบลง 40 เท่า: <strong>โครงสร้างเหลือ 28%</strong> แต่<strong>รายละเอียดเหลือ 2.7%</strong>
+    — โครงสร้างอยู่รอดได้ดีกว่ารายละเอียดราว <strong>10 เท่า</strong>
+    ระบบยอมทิ้งความคมของแต่ละเรื่อง เพื่อรักษาโครงที่บอกว่าเรื่องต่าง ๆ เกี่ยวกันยังไง
+  </p>
+
+  <h3>แล้วมันแปลเป็นการตอบคำถามยังไง</h3>
+
+  <figure>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--structure)"></i> ตอบได้ว่าเรื่องอะไร (แก่น)</span>
+      <span><i class="sw" style="background:var(--fade)"></i> ตอบรายละเอียดได้</span>
+    </div>
+    <svg viewBox="0 0 660 250" role="img" aria-label="เมื่อบีบที่เก็บเล็กลงสี่สิบเท่า ต้นไม้ยังตอบแก่นเรื่องได้เกือบเต็มตลอดขณะที่รายละเอียดค่อยหายไป ส่วนกองแบนเสียทั้งสองอย่างพร้อมกัน">
+      <text class="th" x="14" y="16">ต้นไม้</text>
+      <text class="th" x="352" y="16">กองแบน ๆ</text>
+      <g stroke="currentColor" stroke-opacity=".12">
+        <line x1="56" y1="36" x2="302" y2="36"/><line x1="56" y1="106" x2="302" y2="106"/>
+        <line x1="386" y1="36" x2="632" y2="36"/><line x1="386" y1="106" x2="632" y2="106"/>
+      </g>
+      <text class="ax" x="50" y="40" text-anchor="end">ตอบถูกหมด</text>
+      <text class="ax" x="50" y="180" text-anchor="end">ตอบไม่ได้</text>
+
+      <polyline fill="none" stroke="var(--structure)" stroke-width="2.4" stroke-linejoin="round"
+        points="56,36.7 117,36.7 179,36.7 240,36.7 302,38.2"/>
+      <polyline fill="none" stroke="var(--fade)" stroke-width="2.4" stroke-linejoin="round"
+        points="56,36 117,37.8 179,67 240,116 302,150"/>
+      <g fill="var(--structure)"><circle cx="56" cy="36.7" r="3.6"/><circle cx="302" cy="38.2" r="3.6"/></g>
+      <g fill="var(--fade)"><circle cx="56" cy="36" r="3.6"/><circle cx="302" cy="150" r="3.6"/></g>
+      <text class="pt" x="296" y="30" text-anchor="end" fill="var(--structure)">98%</text>
+      <text class="pt" x="296" y="166" text-anchor="end" fill="var(--fade)">18%</text>
+
+      <polyline fill="none" stroke="var(--structure)" stroke-width="2.4" stroke-linejoin="round"
+        points="386,62 448,54 510,38 571,39 632,59"/>
+      <polyline fill="none" stroke="var(--fade)" stroke-width="2.4" stroke-linejoin="round"
+        points="386,36 448,71 510,107 571,134 632,167"/>
+      <g fill="var(--structure)"><circle cx="386" cy="62" r="3.6"/><circle cx="632" cy="59" r="3.6"/></g>
+      <g fill="var(--fade)"><circle cx="386" cy="36" r="3.6"/><circle cx="632" cy="167" r="3.6"/></g>
+      <text class="pt" x="626" y="52" text-anchor="end" fill="var(--structure)">83%</text>
+      <text class="pt" x="626" y="182" text-anchor="end" fill="var(--fade)">5%</text>
+
+      <g stroke="currentColor" stroke-opacity=".28">
+        <line x1="56" y1="176" x2="302" y2="176"/><line x1="386" y1="176" x2="632" y2="176"/>
+      </g>
+      <text class="ax" x="56" y="196">สมองใหญ่</text>
+      <text class="ax" x="302" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
+      <text class="ax" x="386" y="196">สมองใหญ่</text>
+      <text class="ax" x="632" y="196" text-anchor="end">เล็กลง 40 เท่า</text>
+      <text class="ax" x="56" y="228">เฉลี่ยจากการทดลอง 3 ครั้ง · ยิ่งไปทางขวา ที่เก็บยิ่งเล็ก</text>
+    </svg>
+    <figcaption>
+      เส้นน้ำเงินของต้นไม้ <strong>แบนราบเกือบตลอด</strong> — บีบเล็กลง 40 เท่าก็ยังตอบได้ว่าเรื่องนั้นเกี่ยวกับอะไร
+      เพราะชั้นที่ตอบคำถามนั้นคือชั้นที่รอด ส่วนกองแบน ๆ ไม่มีชั้นให้รอด จึงเสียทั้งสองอย่างพร้อมกัน
+    </figcaption>
+  </figure>
+
+  <div class="verdict">
+    <span class="mark">✅</span>
+    <p><strong>ผ่าน</strong> — และนี่คือคำนิยามของ “เจือจาง” ที่ทำงานจริง:
+    <strong>ไม่ใช่การทิ้ง แต่คือการยอมให้แต่ละเรื่องหยาบลง เพื่อรักษาโครงที่เชื่อมทุกเรื่องเข้าด้วยกัน</strong></p>
+  </div>
+</section>
+
+<!-- E6 -->
+<section class="ev">
+  <span class="tests">ทดสอบ · โครงสร้างนี้เหมือนของคนจริงไหม</span>
+  <h2>เอาไปเทียบกับรูปแบบที่วัดได้ในคนจริง</h2>
+
+  <div class="why">
+    <b>ทำไมข้อนี้สำคัญ</b>
+    <p>
+      ข้อก่อน ๆ ถามว่า <em>“โครงสร้างนี้ใช้งานได้ไหม”</em> ข้อนี้ถามอีกอย่าง —
+      <strong>“โครงสร้างนี้เป็นแบบเดียวกับที่ความรู้ของคนถูกจัดไว้จริงหรือเปล่า”</strong>
+      งาน AI เรื่องความจำเกือบทุกเจ้าเคลมว่า “ได้แรงบันดาลใจจากสมองมนุษย์” แล้วจบแค่นั้น
+      ถ้าเราแสดงได้ว่าโครงสร้างเราสร้าง<em>รูปแบบที่งานวิจัยบันทึกไว้จริง</em> นั่นคือคนละชั้นของข้ออ้าง
+    </p>
+  </div>
+
+  <p class="how">
+    <strong>ทดสอบยังไง</strong> — ในผู้ป่วยโรคความจำเสื่อมชนิดหนึ่ง มีรูปแบบที่ถูกบันทึกซ้ำ ๆ:
+    ผู้ป่วยจะ<em>ลืมชื่อเฉพาะก่อนลืมชื่อหมวด</em> — พูดว่า “สัตว์” ได้อีกนาน หลังจากที่พูดว่า “ม้าลาย” ไม่ได้แล้ว
+    ซึ่งเป็นเรื่องของ<strong>ชั้นความรู้</strong>ล้วน ๆ เราจึงบีบที่เก็บลงเรื่อย ๆ แล้วถามของชิ้นเดิมสามระดับ
+    ตั้งคำถามให้มี 6 ตัวเลือกเท่ากันทุกระดับ (เดาสุ่มได้ 17% เท่ากันหมด เหมือนวิธีทดสอบผู้ป่วยจริง)
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>ที่เก็บ</th><th class="n">“ตัวไหน”<br><small>เฉพาะเจาะจง</small></th><th class="n">“ชนิดไหน”<br><small>ระดับกลาง</small></th><th class="n">“ตระกูลไหน”<br><small>หมวดกว้าง</small></th></tr></thead>
       <tbody>
         <tr><td>ยังพอมีที่</td><td class="n">100%</td><td class="n">100%</td><td class="n">100%</td></tr>
         <tr><td>เริ่มตึง</td><td class="n">65%</td><td class="n"><b>81%</b></td><td class="n">100%</td></tr>
@@ -441,13 +1038,14 @@
     ข้อที่ว่า “หมวดกว้างอยู่รอดกว่าเฉพาะเจาะจง” — <strong>อันนี้เราออกแบบใส่ไปเอง พิสูจน์อะไรไม่ได้</strong>
   </p>
   <p>
-    <strong>ส่วนที่ไม่ได้ออกแบบใส่ไปคือระดับกลาง</strong> ระบบไม่รู้จักคำว่า “สามระดับ” เลย
-    และตอนเริ่มต้นความจำมีแค่สองชั้น ชั้นกลางถูกสร้างขึ้นเองตอนที่ระบบ “จัดระเบียบตัวเอง”
+    <strong>ส่วนที่ไม่ได้ออกแบบใส่ไปคือชั้นกลาง</strong> ระบบไม่รู้จักคำว่า “สามระดับ” เลย
+    ตอนเริ่มต้นต้นไม้มีแค่สองชั้น ชั้นกลางถูกสร้างขึ้นเองตอนที่ระบบจัดระเบียบตัวเอง
     โดยจับของที่คล้ายกันมากองรวมกัน — <strong>ไม่มีใครบอกมันว่าหมาจบตรงไหนแมวเริ่มตรงไหน</strong>
   </p>
   <p>
     หลักฐานตรงที่สุดคือตอนที่ผมลืมสั่งให้มันจัดระเบียบตัวเอง ผลออกมาเป็น<strong>หน้าผาสองระดับ</strong>
     (ระดับกลางเสื่อมทับเฉพาะเจาะจงเป๊ะ) พอให้มันสร้างชั้นกลางเอง สามระดับก็แยกออกจากกันทันที
+    — <strong>ชั้นของต้นไม้คือสิ่งที่ทำให้รูปแบบนี้เกิด ไม่ใช่อย่างอื่น</strong>
   </p>
 
   <div class="verdict">
@@ -457,68 +1055,23 @@
   </div>
 </section>
 
-<!-- ============ 6 ============ -->
-<section class="q">
-  <span class="num">คำถามที่ 6</span>
-  <h2>มันเข้าใจโครงสร้างของเรื่องเองได้ไหม</h2>
-
-  <div class="why">
-    <b>ทำไมคำถามนี้สำคัญ</b>
-    <p>
-      คำถามที่แล้วได้ผลตรงกับคน แต่มีข้อสงสัยค้างอยู่: <strong>สามระดับคือคำตอบ หรือแค่คำถามที่เราบังเอิญถาม?</strong>
-      ถ้าระบบทำได้แค่สามระดับตายตัว แปลว่าต้องมีคนไปบอกมันล่วงหน้าทุกครั้งว่างานนี้มีโครงสร้างกี่ชั้น
-      — ซึ่งก็ไม่ใช่ความจำที่ใช้ได้จริง <strong>มันต้องอ่านโครงสร้างออกมาจากสิ่งที่เห็นเอง</strong>
-    </p>
-  </div>
-
-  <p class="how">
-    <em>ทดสอบยังไง</em> — สร้างโลก 4 แบบที่ลึก 2, 3, 4 และ 5 ชั้น ขนาดพอ ๆ กัน
-    (เช่น 3 ชั้น = สัตว์ → หมา → หมาตัวนั้น · 4 ชั้น = สิ่งมีชีวิต → สัตว์ → หมา → หมาตัวนั้น)
-    แล้วดูว่าโครงสร้างที่ระบบสร้างขึ้นเองตามหรือไม่
-  </p>
-
-  <div class="scroll">
-    <table>
-      <thead><tr><th>โลกที่ให้</th><th class="n">ระบบแยกชั้นออกได้จริง</th><th>ผล</th></tr></thead>
-      <tbody>
-        <tr><td>ลึก 2 ชั้น</td><td class="n"><b>2 จาก 2</b></td><td>ตามได้ครบ</td></tr>
-        <tr><td>ลึก 3 ชั้น</td><td class="n"><b>3 จาก 3</b></td><td>ตามได้ครบ</td></tr>
-        <tr><td>ลึก 4 ชั้น</td><td class="n"><b>4 จาก 4</b></td><td>ตามได้ครบ</td></tr>
-        <tr><td>ลึก 5 ชั้น</td><td class="n">4 จาก 5</td><td>สองชั้นล่างสุดกองรวมกัน</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <p>
-    <strong>ระบบไม่ได้ถูกล็อกไว้ที่สามชั้น มันอ่านความลึกออกมาจากข้อมูลเอง</strong>
-    — แปลว่าไม่ต้องบอกล่วงหน้าว่างานนี้มีโครงสร้างแบบไหน
-  </p>
-
-  <p class="how">
-    เพดานอยู่ที่ประมาณ 4–5 ชั้น เพราะพอลึกเกินไป ของที่อยู่ติดกันจะเหมือนกันจนแยกไม่ออก
-    <strong>บันทึกไว้เป็นขีดจำกัดที่วัดได้ ไม่ได้เอามาเล่าเป็นความสำเร็จ</strong>
-  </p>
-
-  <div class="verdict">
-    <span class="mark">✅</span>
-    <p><strong>ผ่าน มีเพดาน</strong> — ตามโครงสร้างได้ถึง 4 ชั้นอย่างมั่นคง ชั้นที่ 5 เริ่มไม่ไหว</p>
-  </div>
-</section>
-
-<hr>
-
-<h2>สรุปว่าตอนนี้อยู่ตรงไหน</h2>
+<!-- ══════════════════ CLOSING ══════════════════ -->
+<div class="part">
+  <span class="tag">สรุป</span>
+  <h2>ตอนนี้อยู่ตรงไหน</h2>
+</div>
 
 <div class="scroll">
   <table>
-    <thead><tr><th>คำถาม</th><th>ผล</th></tr></thead>
+    <thead><tr><th>คุณสมบัติของโครงสร้าง</th><th>ผล</th></tr></thead>
     <tbody>
-      <tr><td>ที่เก็บเต็มแล้วเสียแค่รายละเอียดไหม</td><td>✅ ผ่าน</td></tr>
-      <tr><td>ใช้พื้นที่บนโต๊ะน้อยกว่าไหม</td><td>✅ ผ่าน — น้อยกว่า 16 เท่า</td></tr>
-      <tr><td>จำเยอะแล้วช้าลงไหม</td><td>⚠️ เร็วกว่าเดิม 4–6 เท่า แต่ยังไม่ถึงเป้าที่ตั้งเอง</td></tr>
-      <tr><td>จำนิสัยได้เองไหม</td><td>✅ ผ่าน</td></tr>
-      <tr><td>ลืมเหมือนคนไหม</td><td>✅ ผ่าน</td></tr>
-      <tr><td>อ่านโครงสร้างเองได้ไหม</td><td>✅ ผ่าน ถึง 4 ชั้น</td></tr>
+      <tr><td>ที่อยู่ตอบเสมอ ไม่มีคำว่าสูญ</td><td>✅ 110 จาก 110</td></tr>
+      <tr><td>โครงสร้างเกิดขึ้นเองจากข้อมูล</td><td>✅ ผ่าน</td></tr>
+      <tr><td>ต้นไม้ยืดหยุ่นตามความลึกของโลก</td><td>✅ ผ่าน ถึง 4 ชั้น</td></tr>
+      <tr><td>ต้นไม้ทำให้หาของถูกลง</td><td>⚠️ ถูกลง 3–5 เท่า แต่ยังไม่ถึงเป้าที่ตั้งเอง</td></tr>
+      <tr><td>ใช้พื้นที่บนโต๊ะน้อยลง</td><td>✅ น้อยกว่า 16 เท่า</td></tr>
+      <tr><td>พอที่เก็บตึง โครงสร้างคือสิ่งที่รอด</td><td>✅ รอดดีกว่ารายละเอียด 10 เท่า</td></tr>
+      <tr><td>โครงสร้างตรงกับที่วัดได้ในคน</td><td>✅ ผ่าน</td></tr>
     </tbody>
   </table>
 </div>
@@ -531,9 +1084,9 @@
 
 <ul>
   <li><strong>ยังเป็นโลกจำลองทั้งหมด</strong> — ยังไม่ได้ต่อกับ AI ตัวจริง
-    ตัวเลขที่เห็นบอกว่า “โครงสร้างใช้ได้” ไม่ได้บอกว่า “ใช้งานจริงได้แล้ว”</li>
+    ตัวเลขที่เห็นบอกว่า “โครงสร้างถูกต้อง” ไม่ได้บอกว่า “ใช้งานจริงได้แล้ว”</li>
   <li><strong>เป้าความเร็วที่ตั้งไว้เอง ยังไม่ผ่าน</strong> — ต้องตัดสินก่อนไปต่อ</li>
-  <li><strong>ยังไม่เคยเทียบกับข้อมูลคนไข้จริง</strong> — ที่บอกว่า “ลืมเหมือนคน” คือตรงกัน
+  <li><strong>ยังไม่เคยเทียบกับข้อมูลคนไข้จริง</strong> — ที่บอกว่าตรงกับคน คือตรงกัน
     <em>เชิงรูปแบบ</em> ยังไม่ใช่การเทียบตัวเลขกับข้อมูลจริง</li>
   <li><strong>ค่าปรับแต่งหลายตัวยังตั้งด้วยมือ</strong> — ยังไม่ได้หาค่าที่ดีที่สุดอย่างเป็นระบบ</li>
   <li><strong>ผลชุดนี้ยังไม่ใช่คำตัดสิน</strong> — เราตั้งกติกาไว้ว่าต้องประกาศเกณฑ์ก่อน
@@ -544,21 +1097,23 @@
 <h3>เรื่องที่น่าสนใจระหว่างทาง</h3>
 <p>
   การลงมือวัดจริงทำให้เจอว่าออกแบบผิดไป <strong>8 จุด</strong> และทุกจุดเจอเพราะ<strong>วัด ไม่ใช่เพราะคิด</strong>
-  ตัวที่หนักที่สุดคือระบบเคย “นึกถึงแต่เรื่องล่าสุด” ไม่ว่าจะถามอะไร — เหมือนถามถึงงานแต่งงาน
-  แล้วมันเล่าเรื่องข้าวเช้าให้ฟัง เพราะข้าวเช้าใกล้กว่า ก่อนแก้หาของเจอแค่ 3% หลังแก้ 100%
+  ตัวที่หนักที่สุดคือระบบเคยเลือกทางเดินในต้นไม้ผิด จนไม่ว่าถามอะไรก็เดินไปหาแต่เรื่องล่าสุด —
+  เหมือนถามถึงงานแต่งงาน แล้วมันเล่าเรื่องข้าวเช้าให้ฟังเพราะข้าวเช้าใกล้กว่า
+  ก่อนแก้เดินไปถึงของที่ต้องการแค่ 3% หลังแก้ 100%
 </p>
 
 <h2>ต่อไปทำอะไร</h2>
 <ul>
   <li><strong>ตัดสินเรื่องเป้าความเร็ว</strong> ที่ยังไม่ผ่าน — ก่อนจะไปสอบจริง</li>
   <li><strong>ประกาศเกณฑ์การสอบให้ครบ</strong> แล้วค่อยวัดกับข้อมูลชุดใหม่ครั้งเดียว</li>
-  <li><strong>ต่อกับ AI ตัวจริง</strong> เมื่อพร้อม — จุดเชื่อมออกแบบเผื่อไว้แล้ว
-    และมีทางสำรองที่ทำงานได้เองโดยไม่ต้องพึ่ง AI เสมอ เพื่อจะได้วัดว่าการให้ AI ตัดสินใจเอง
-    เพิ่มค่าจริงเท่าไหร่</li>
+  <li><strong>ต่อกับ AI ตัวจริง</strong> เมื่อพร้อม — ให้มันเป็นคนเลือกเองว่าจะเดินในต้นไม้ยังไง
+    จุดเชื่อมออกแบบเผื่อไว้แล้ว และยังมีทางสำรองที่ทำงานได้เองโดยไม่ต้องพึ่ง AI เสมอ
+    เพื่อจะได้วัดว่าการให้ AI ตัดสินใจเองเพิ่มค่าจริงเท่าไหร่</li>
 </ul>
 
 <footer>
-  ทดลองซ้ำได้ทั้งหมด · <code>python -m somaos.bench.experiments.curves</code> ·
+  ตัวเลขทั้งหมดอ่านมาจากระบบที่รันจริง ทดลองซ้ำได้ ·
+  <code>python -m somaos.bench.experiments.curves</code> ·
   <code>...superordinate</code> · <code>...depth</code><br>
   ทดสอบอัตโนมัติ 568 ข้อ ผ่านทั้งหมด · branch <code>claude/current-phase-progress-t8jqdr</code>
 </footer>
