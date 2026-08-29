@@ -188,13 +188,23 @@ class CallableNavigator:
     one of the option dicts it was given, or just ``{"move": "stop"}``.
 
     A real model will sometimes answer off the menu -- an invented move, a
-    stale address, a move that was legal one step ago. That is not a
-    reason to lose the memory, so under the default ``on_error="stop"``
-    it ends the walk with what has been found, and is counted in
-    ``off_menu`` so it stays visible. Set ``on_error="raise"`` when
-    measuring: an experiment comparing model-driven recall against the
-    fast path must not quietly absorb the model's mistakes, or it is
-    measuring the absorption.
+    stale address, a move that was legal one step ago. **That is a
+    malformed message, not a bad decision, and the two must not be
+    treated alike.** A bad decision -- descending the wrong branch,
+    stopping too early -- is the agent choosing, and it is allowed
+    without interference: it costs a step, and ASCEND and LATERAL exist
+    so it can be taken back. Only the malformed message is handled here,
+    because there is no branch it names to walk toward.
+
+    Even then the first answer is not the last word. The chooser is shown
+    the same position again with ``error`` saying what was wrong, up to
+    ``max_retries`` times, which is what a person doing this does -- "no,
+    not that one" is a correction, not the end of remembering. Only when
+    the retries are spent does the walk finish with what it has, counted
+    in ``off_menu``. Set ``on_error="raise"`` when measuring: an
+    experiment comparing model-driven recall against the fast path must
+    not quietly absorb the model's mistakes, or it is measuring the
+    absorption.
 
     ``on_error`` decides what a broken or unreachable chooser costs. The
     default finishes the walk with what it has, so a model going down
@@ -218,6 +228,14 @@ class CallableNavigator:
     #: on being shown the same position again; a few is not a strategy.
     MAX_STALLS = 3
 
+    #: Malformed answers tolerated at one position before giving up on it.
+    #: A model that names a move that does not exist gets shown the menu
+    #: again with the reason, the same way a person who reaches for the
+    #: wrong memory gets to say "no, the other one". Bounded because a
+    #: chooser that cannot produce a legal move after three tries is not
+    #: going to on the fourth, and retries cost real model calls.
+    MAX_RETRIES = 2
+
     def __init__(
         self,
         choose,
@@ -225,6 +243,7 @@ class CallableNavigator:
         reveal_text: bool = True,
         on_error: str = "stop",
         max_stalls: int | None = None,
+        max_retries: int | None = None,
     ) -> None:
         if on_error not in ("stop", "raise"):
             raise ValueError(f"on_error must be 'stop' or 'raise', got {on_error!r}")
@@ -232,6 +251,7 @@ class CallableNavigator:
         self.reveal_text = reveal_text
         self.on_error = on_error
         self.max_stalls = self.MAX_STALLS if max_stalls is None else int(max_stalls)
+        self.max_retries = self.MAX_RETRIES if max_retries is None else int(max_retries)
         #: How many times the chooser was consulted on the last walk. The
         #: unit a model-in-the-loop run is billed in.
         self.calls = 0
@@ -244,6 +264,10 @@ class CallableNavigator:
         #: stall is a legal move that achieved nothing, this is a move
         #: that did not exist.
         self.off_menu = 0
+        #: Off-menu answers the chooser then corrected when shown the menu
+        #: again. Worth its own counter: a model that recovers is usable
+        #: with retries, one that never does needs a different prompt.
+        self.recovered = 0
 
     @staticmethod
     def _progress(machine: RecallMachine) -> tuple:
@@ -253,6 +277,7 @@ class CallableNavigator:
         self.calls = 0
         self.stalls = 0
         self.off_menu = 0
+        self.recovered = 0
         stalled = 0
         # Every navigating move spends an op and every useful materialise
         # adds a memory, so this bounds a walk that is making progress and
@@ -271,22 +296,10 @@ class CallableNavigator:
                 break
 
             view = describe(machine, reveal_text=self.reveal_text)
-            try:
-                self.calls += 1
-                picked = self._choose(view)
-                move, addr = self._parse(picked, legal)
-            except NavigationError:
-                self.off_menu += 1
-                if self.on_error == "raise":
-                    raise
+            move, addr, failure = self._consult(view, legal)
+            if failure is not None:
                 machine.step(Move.STOP)
-                machine.path.stopped_by = "chooser went off menu"
-                break
-            except Exception:
-                if self.on_error == "raise":
-                    raise
-                machine.step(Move.STOP)
-                machine.path.stopped_by = "chooser failed"
+                machine.path.stopped_by = failure
                 break
 
             before = self._progress(machine)
@@ -294,13 +307,27 @@ class CallableNavigator:
                 machine.step(move, addr=addr)
             except Exception:
                 # A stale or invented address reaches the machine as an
-                # unknown one. Same class of mistake as an invented move.
+                # unknown one -- the same malformed-message case, caught
+                # one layer later. Retry it the same way.
                 self.off_menu += 1
-                if self.on_error == "raise":
-                    raise
-                machine.step(Move.STOP)
-                machine.path.stopped_by = "chooser went off menu"
-                break
+                move, addr, failure = self._consult(
+                    view, legal,
+                    reason=f"address {addr!r} is not one of the options",
+                    already_tried=1,
+                )
+                if failure is not None:
+                    machine.step(Move.STOP)
+                    machine.path.stopped_by = failure
+                    break
+                self.recovered += 1
+                try:
+                    machine.step(move, addr=addr)
+                except Exception:
+                    if self.on_error == "raise":
+                        raise
+                    machine.step(Move.STOP)
+                    machine.path.stopped_by = "chooser went off menu"
+                    break
             if move is Move.STOP:
                 break
 
@@ -321,6 +348,46 @@ class CallableNavigator:
         if machine.state in (RecallState.NAVIGATE, RecallState.RESIDENT):
             machine.step(Move.STOP)
         return machine.finish()
+
+    def _consult(
+        self,
+        view: dict,
+        legal: tuple[Move, ...],
+        *,
+        reason: str | None = None,
+        already_tried: int = 0,
+    ) -> tuple[Move | None, str | None, str | None]:
+        """Ask the chooser, giving it a chance to correct a bad answer.
+
+        Returns ``(move, addr, None)`` on success, or
+        ``(None, None, why_the_walk_should_stop)`` once the retries are
+        spent. A retry re-sends the *same* position with ``error`` set,
+        because the position has not changed -- nothing was stepped.
+        """
+        attempt = already_tried
+        while True:
+            payload = view if reason is None else {**view, "error": reason}
+            try:
+                self.calls += 1
+                picked = self._choose(payload)
+                move, addr = self._parse(picked, legal)
+                if attempt > already_tried or reason is not None:
+                    self.recovered += 1
+                return move, addr, None
+            except NavigationError as exc:
+                self.off_menu += 1
+                if self.on_error == "raise":
+                    raise
+                if attempt >= self.max_retries:
+                    return None, None, "chooser went off menu"
+                attempt += 1
+                reason = str(exc)
+            except Exception:
+                if self.on_error == "raise":
+                    raise
+                # A chooser that threw is not a chooser that answered
+                # wrongly -- there is nothing to correct, so no retry.
+                return None, None, "chooser failed"
 
     @staticmethod
     def _parse(picked, legal: tuple[Move, ...]) -> tuple[Move, str | None]:

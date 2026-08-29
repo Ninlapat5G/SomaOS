@@ -317,10 +317,13 @@ def test_a_chooser_that_stalls_is_stopped():
 
 
 def test_a_chooser_that_invents_a_move_degrades_instead_of_losing_the_memory():
+    """It is retried first -- see the retry tests below -- and only once
+    the retries are spent does the walk finish with what it has."""
     nav = CallableNavigator(lambda view: {"move": "teleport"})
     soma = build(days=30, navigator=nav)
     result = soma.recall(Cue.about("routine", tick=30))
-    assert nav.off_menu == 1
+    assert nav.off_menu == nav.max_retries + 1
+    assert nav.recovered == 0
     assert result.path["stopped_by"] == "chooser went off menu"
 
 
@@ -362,3 +365,116 @@ def test_the_fast_path_is_a_real_baseline_not_a_stub():
     fast = build(navigator=FastPathNavigator()).recall(cue)
     dumb = build(navigator=naive).recall(cue)
     assert len(fast.keys) >= len(dumb.keys)
+
+
+# ------------------------------------------- the agent really does choose
+
+def _first_descend_options(soma):
+    from somaos.broker.recall.machine import Move, RecallMachine
+    from somaos.broker.recall.navigator import options
+
+    machine = RecallMachine(soma.tree, ops_budget=6, context_budget_tokens=256,
+                            beam=soma.beam, tokens_of=soma.tokens_of)
+    machine.begin(topics=("routine",), tick=60, resident=soma.core.addresses())
+    return machine, [o for o in options(machine) if o.move is Move.DESCEND]
+
+
+def test_descending_goes_where_the_agent_said_not_where_the_score_said():
+    """The menu offers children; picking one has to mean something.
+
+    For most of Phase 0b it did not: the walk ranked the children and
+    always took the top one, whatever address it had been handed. A
+    chooser was shown four options and had its answer discarded, which
+    makes "the agent decides" decorative. Nothing caught it because the
+    fast path drives its own frontier and never passes an address.
+    """
+    from somaos.broker.recall.machine import Move
+
+    soma = build()
+    machine, kids = _first_descend_options(soma)
+    assert len(kids) > 1, "need a real choice for this test to mean anything"
+
+    worst = min(kids, key=lambda o: o.score)
+    best = max(kids, key=lambda o: o.score)
+    assert worst.addr != best.addr
+
+    machine.step(Move.DESCEND, addr=worst.addr)
+    assert machine._position == worst.addr
+
+
+def test_the_agent_may_choose_a_child_the_engine_did_not_rank_highly():
+    """Ranking is advice. A deliberately poor choice is still a choice."""
+    from somaos.broker.recall.machine import Move
+
+    soma = build()
+    machine, kids = _first_descend_options(soma)
+    worst = min(kids, key=lambda o: o.score)
+    machine.step(Move.DESCEND, addr=worst.addr)
+    step = machine.path.steps[-1]
+    assert step.addr == worst.addr
+    assert step.score == pytest.approx(worst.score, abs=1e-6)
+
+
+def test_naming_something_that_is_not_a_child_is_refused():
+    """A bad decision is allowed; a malformed move is not the same thing."""
+    from somaos.broker.recall.machine import IllegalMove, Move
+
+    soma = build()
+    machine, _ = _first_descend_options(soma)
+    with pytest.raises(IllegalMove):
+        machine.step(Move.DESCEND, addr="addr:not-a-real-address")
+
+
+def test_two_choosers_that_differ_end_up_somewhere_different():
+    """The end-to-end version: if choice were ignored, these would match."""
+    def pick(which):
+        def choose(view):
+            kids = [o for o in view["options"] if o["move"] == "descend"]
+            if not kids:
+                return {"move": "materialize"}
+            return which(kids, key=lambda o: o["score"])
+        return choose
+
+    cue = Cue.about("routine", tick=60)
+    greedy = build(navigator=CallableNavigator(pick(max))).recall(cue)
+    contrary = build(navigator=CallableNavigator(pick(min))).recall(cue)
+    assert greedy.keys != contrary.keys
+
+
+def test_a_chooser_gets_a_second_chance_after_a_malformed_answer():
+    """"No, not that one" is a correction, not the end of remembering."""
+    calls = {"n": 0}
+
+    def fumble_once(view):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {"move": "teleport"}
+        kids = [o for o in view["options"] if o["move"] == "descend"]
+        return kids[0] if kids else {"move": "stop"}
+
+    nav = CallableNavigator(fumble_once)
+    soma = build(days=30, navigator=nav)
+    result = soma.recall(Cue.about("routine", tick=30))
+    assert nav.off_menu == 1
+    assert nav.recovered == 1
+    assert result.path["stopped_by"] != "chooser went off menu"
+
+
+def test_retries_are_bounded():
+    nav = CallableNavigator(lambda view: {"move": "teleport"}, max_retries=2)
+    soma = build(days=30, navigator=nav)
+    result = soma.recall(Cue.about("routine", tick=30))
+    assert nav.calls == 3, "one attempt plus two retries"
+    assert result.path["stopped_by"] == "chooser went off menu"
+
+
+def test_a_retry_is_told_what_was_wrong():
+    seen: list[dict] = []
+
+    def note(view):
+        seen.append(view)
+        return {"move": "teleport"}
+
+    build(days=30, navigator=CallableNavigator(note)).recall(Cue.about("routine", tick=30))
+    assert "error" not in seen[0]
+    assert "error" in seen[1] and "teleport" in seen[1]["error"]

@@ -329,12 +329,28 @@ class RecallMachine:
         if move is Move.MATERIALIZE:
             return self._materialize(addr or self._position)
         if move is Move.DESCEND:
-            return self._descend()
+            return self._descend(addr)
         if move is Move.ASCEND:
             return self._ascend()
-        return self._lateral()
+        return self._lateral(addr)
 
-    def _descend(self) -> RecallState:
+    def _descend(self, addr: str | None = None) -> RecallState:
+        """Step to a child. ``addr`` names which one; without it, the best.
+
+        Honouring ``addr`` is the whole point of the agent being in the
+        loop. It was ignored here for most of Phase 0b -- the walk always
+        took the top-ranked child -- which meant a chooser was shown four
+        children with scores and addresses and then had its answer thrown
+        away. The fast path never noticed because it drives its own
+        frontier; only an agent-driven walk could, and there wasn't one.
+
+        The engine still ranks, because ranking is what builds the
+        frontier that ASCEND and LATERAL fall back on, and because the
+        beam is what keeps a step from being a scan (N-08). But ranking
+        is advice. Which child the walk enters is the agent's call, and
+        picking the worst-scoring one is a decision it is allowed to
+        make and to regret.
+        """
         ranked = self.tree.rank_children(
             self._position, self._cue, tick=self._tick, beam=self.beam
         )
@@ -345,11 +361,31 @@ class RecallMachine:
                          note="no children")
             )
             return self.state
+
+        chosen, score = ranked[0]
+        note = ""
+        if addr is not None:
+            resolved = self.tree.alias.resolve(addr)
+            picked = next((pair for pair in ranked if pair[0] == resolved), None)
+            if picked is None:
+                # Naming a child outside the beam is allowed: the beam
+                # bounds what the engine offers, not what the agent may
+                # choose. Naming something that is not a child at all is
+                # not -- that is a malformed move, not a decision.
+                if resolved not in self.tree.children_of(self._position):
+                    raise IllegalMove(
+                        f"{addr} is not a child of the current position"
+                    )
+                node = self.tree.get(resolved)
+                picked = (resolved, similarity(self._cue, node.vec))
+                note = "chosen from outside the beam"
+            chosen, score = picked
+
         self._frontier = ranked
-        self._position = ranked[0][0]
+        self._position = chosen
         self._visited.append(self._position)
         self.path.steps.append(
-            WalkStep(Move.DESCEND, self._position, ranked[0][1], self.path.ops_used)
+            WalkStep(Move.DESCEND, self._position, score, self.path.ops_used, note=note)
         )
         return self.state
 
@@ -366,12 +402,14 @@ class RecallMachine:
         )
         return self.state
 
-    def _lateral(self) -> RecallState:
-        """Step to the next-best sibling already on the frontier.
+    def _lateral(self, addr: str | None = None) -> RecallState:
+        """Step to a sibling already on the frontier. ``addr`` names which.
 
         Spreading activation: having reached one memory, its neighbours are
         cheap to reach, which is why the frontier is kept rather than
-        recomputed.
+        recomputed. Which neighbour is the agent's choice, for the same
+        reason it is on DESCEND -- "no, the other one" is the move this
+        exists for, and it is worth nothing if the engine picks anyway.
         """
         self.path.ops_used += 1
         remaining = tuple(a for a in self._frontier if a[0] != self._position)
@@ -379,6 +417,18 @@ class RecallMachine:
             self.path.steps.append(
                 WalkStep(Move.LATERAL, self._position, 0.0, self.path.ops_used,
                          note="no neighbours left")
+            )
+            return self.state
+        if addr is not None:
+            resolved = self.tree.alias.resolve(addr)
+            picked = next((pair for pair in remaining if pair[0] == resolved), None)
+            if picked is None:
+                raise IllegalMove(f"{addr} is not a neighbour on the frontier")
+            self._position, score = picked
+            self._frontier = remaining
+            self._visited.append(self._position)
+            self.path.steps.append(
+                WalkStep(Move.LATERAL, self._position, score, self.path.ops_used)
             )
             return self.state
         self._position, score = remaining[0]
