@@ -320,6 +320,9 @@ class STree(_Base):
             tick=question.tick, resident=resident,
         )
         result = walk.run_fast_path(max_materialized=64)
+        # Kept so a caller can read what the walk cost in working memory,
+        # which is the binding constraint on a microcontroller.
+        self.machine = walk
         return Outcome(
             nodes=result.nodes,
             tokens=result.total_tokens,

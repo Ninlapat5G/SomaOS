@@ -164,6 +164,11 @@ class RecallMachine:
         self._resident: tuple[str, ...] = ()
         self._resident_tokens = 0
         self._visited: list[str] = []
+        #: Most addresses the search held at once during the last walk.
+        #: Recorded because on a memory-constrained host the walk's working
+        #: set is a hard limit, not an accounting detail: the frontier has
+        #: to fit in RAM even when the store lives in flash.
+        self.peak_working_addresses = 0
 
     # ------------------------------------------------------------ CUE
 
@@ -443,6 +448,7 @@ class RecallMachine:
             seen[addr] = score
         if self._position is not None and self._position not in seen:
             seen[self._position] = 0.0
+        self.peak_working_addresses = max(self.peak_working_addresses, len(seen))
 
         while frontier and self.ops_left > 0:
             frontier.sort(key=lambda pair: (-pair[0], pair[1]))
@@ -461,6 +467,7 @@ class RecallMachine:
                     continue
                 seen[child] = child_score
                 frontier.append((child_score, child))
+            self.peak_working_addresses = max(self.peak_working_addresses, len(seen))
 
         # Report what the search found, best first. Materialising in score
         # order rather than in the order the walk happened to pass things

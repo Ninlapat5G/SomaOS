@@ -34,6 +34,9 @@ SomaOS คือ **memory management runtime สำหรับ LLM agent** ท�
 - **domain-agnostic** — kernel เดียว ใช้ได้หลายโดเมนผ่าน "pack"
 - **production-grade**: replay ได้, observability, failure mode ชัด, cost governance
 - ฐานเป็น **CS/CE** (OS theory, DB theory, information retrieval) ไม่ใช่ prompt engineering
+- **รันบน microcontroller ได้** — นี่คือเหตุผลสำคัญที่ทำให้ OS นี้มีประโยชน์จริง ไม่ใช่ผลพลอยได้
+  บนเครื่องทั่วไปที่ดิสก์เหลือเฟือ กลไกเจือจางแทบไม่ทำงาน แต่บนชิปที่ flash เป็น MB และ SRAM เป็น KB
+  มันคือสิ่งที่ทำให้ระบบเป็นไปได้เลย — ดู `plans/05_EMBEDDED_TARGET.md`
 
 ### 1.2 เชิงยุทธศาสตร์
 - เป็น **backbone ที่ใช้ซ้ำได้** ข้ามโปรเจกต์: SynaptaOS (smart home), thesis (HR interview agent), BCI/gaming
