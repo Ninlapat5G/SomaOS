@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import statistics as st
 import sys
@@ -313,9 +314,19 @@ def verdict(comparison: dict) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--endpoint", help="OpenAI-compatible base URL")
-    parser.add_argument("--model", default="gemma3:4b")
-    parser.add_argument("--api-key", default=None)
+    # Endpoint, model and key all fall back to the environment so a run
+    # can be started without any of them on the command line. That is what
+    # makes an unattended run possible: a key passed as an argument ends
+    # up in shell history, in process listings and in whatever log the
+    # runner keeps, and none of those are places a credential should be.
+    parser.add_argument("--endpoint", default=os.environ.get("SOMAOS_MODEL_ENDPOINT"),
+                        help="OpenAI-compatible base URL "
+                             "[env: SOMAOS_MODEL_ENDPOINT]")
+    parser.add_argument("--model",
+                        default=os.environ.get("SOMAOS_MODEL", "gemma3:4b"),
+                        help="[env: SOMAOS_MODEL]")
+    parser.add_argument("--api-key", default=os.environ.get("SOMAOS_MODEL_API_KEY"),
+                        help="[env: SOMAOS_MODEL_API_KEY]")
     parser.add_argument("--record", help="write the transcript here")
     parser.add_argument("--replay", help="replay a recorded transcript instead")
     parser.add_argument("--on-error", default="stop", choices=("stop", "raise"))

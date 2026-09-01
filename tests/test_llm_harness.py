@@ -33,6 +33,7 @@ from somaos.broker import (
 from somaos.broker.recall.machine import RecallMachine
 from somaos.broker.recall.prompting import (
     PromptedChooser,
+    _phrases,
     ToolCallingChooser,
     build_tools,
     parse_choice,
@@ -361,6 +362,45 @@ def test_tool_arguments_are_accepted_as_an_object_too():
 def test_a_bad_tool_call_is_refused_rather_than_guessed(call):
     with pytest.raises(NavigationError):
         parse_tool_call(call, a_view(build()))
+
+
+@pytest.mark.parametrize("lang", ["en", "th"])
+def test_the_tool_prompt_asks_for_a_call_not_for_a_number(lang):
+    """The instruction has to match the channel being offered.
+
+    Left saying "answer with the number and nothing else" while a tool
+    was attached, the model obeyed the sentence rather than the schema:
+    Typhoon returned plain numbers in 3,019 exchanges out of 3,019, and
+    the experiment recorded that as a model unable to call tools. It was
+    the prompt contradicting the tool the whole time.
+    """
+    view = a_view(build())
+    text = render_prompt(view, lang=lang, tools=True)
+    plain = render_prompt(view, lang=lang, tools=False)
+    assert text != plain
+    assert "choose" in text
+    assert _phrases(lang)["answer_text"] not in text
+
+
+def test_the_tool_chooser_renders_the_tool_prompt():
+    seen: list[str] = []
+
+    def call_tool(prompt, tools):
+        seen.append(prompt)
+        return {"function": {"name": "choose", "arguments": '{"option": 1}'}}, None
+
+    ToolCallingChooser(call_tool)(a_view(build()))
+    assert "choose" in seen[0]
+
+
+def test_an_empty_reply_is_counted_apart_from_a_bad_choice():
+    """An endpoint returning nothing is the server failing, not the model
+    navigating badly, and folding the two together bills one for the
+    other."""
+    chooser = ToolCallingChooser(lambda prompt, tools: (None, ""))
+    with pytest.raises(NavigationError):
+        chooser(a_view(build()))
+    assert chooser.empty_replies == 1
 
 
 def test_a_model_that_answers_in_prose_instead_of_calling_is_still_read():

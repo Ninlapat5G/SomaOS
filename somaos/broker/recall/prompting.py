@@ -89,6 +89,10 @@ _PHRASES = {
         "ascend": "Step back to the broader memory this belongs to.",
         "lateral": "Go to a related memory",
         "descend": "Go into a memory within this one",
+        "answer_text": "Answer with the number of one option and nothing else.",
+        "answer_tool": "Answer by calling the choose function with the number "
+                       "of one option.",
+        "which_tool": "Call choose with the number.",
     },
     "th": {
         "system": SYSTEM_PROMPT_TH,
@@ -110,6 +114,9 @@ _PHRASES = {
         "ascend": "ถอยกลับไปยังความทรงจำที่กว้างกว่าซึ่งเรื่องนี้อยู่ในนั้น",
         "lateral": "ไปยังความทรงจำที่เกี่ยวข้อง",
         "descend": "เข้าไปในความทรงจำย่อยของเรื่องนี้",
+        "answer_text": "ตอบเป็นหมายเลขของตัวเลือกเดียว ห้ามตอบอย่างอื่น",
+        "answer_tool": "ตอบโดยเรียกฟังก์ชัน choose พร้อมหมายเลขของตัวเลือกเดียว",
+        "which_tool": "เรียก choose พร้อมหมายเลข",
     },
 }
 
@@ -147,7 +154,7 @@ _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 
 
 def render_prompt(view: dict, *, include_system: bool = True,
-                  lang: str = "en") -> str:
+                  lang: str = "en", tools: bool = False) -> str:
     """Render one decision point as text.
 
     Deterministic: the same view always renders the same string, so a run
@@ -161,7 +168,16 @@ def render_prompt(view: dict, *, include_system: bool = True,
     say = _phrases(lang)
     lines: list[str] = []
     if include_system:
-        lines.append(say["system"])
+        # The last line of the preamble tells the model how to answer, and
+        # it has to match the channel actually being offered. Left as
+        # "answer with the number and nothing else" while a tool was
+        # attached, the model obeyed the sentence: Typhoon returned plain
+        # numbers and not one tool call in 3,019 exchanges, and the
+        # experiment read that as a model that cannot call tools.
+        system = say["system"]
+        if tools:
+            system = system.replace(say["answer_text"], say["answer_tool"])
+        lines.append(system)
         lines.append("")
 
     here = view.get("here")
@@ -199,7 +215,7 @@ def render_prompt(view: dict, *, include_system: bool = True,
         lines.append(f"  {index}. {label}")
 
     lines.append("")
-    lines.append(say["which"])
+    lines.append(say["which_tool"] if tools else say["which"])
     return "\n".join(lines)
 
 
@@ -415,20 +431,28 @@ class ToolCallingChooser:
         #: Reported rather than hidden: a model that ignores the tool it
         #: was given is telling you something about how it will behave.
         self.text_instead_of_call = 0
+        #: Replies with neither a tool call nor any text. Counted apart
+        #: from the rest because an empty answer is the endpoint failing,
+        #: not the model navigating badly, and folding it into off_menu
+        #: charges the model for the server's behaviour.
+        self.empty_replies = 0
 
     def reset(self) -> None:
         self.transcript = []
         self.prompt_chars = 0
         self.text_instead_of_call = 0
+        self.empty_replies = 0
 
     def __call__(self, view: dict) -> dict:
-        prompt = render_prompt(view, lang=self.lang)
+        prompt = render_prompt(view, lang=self.lang, tools=True)
         tools = build_tools(view, lang=self.lang)
         self.prompt_chars += len(prompt)
         call, text = self._call_tool(prompt, tools)
         if self.keep_transcript:
             self.transcript.append((prompt, json.dumps(call) if call else (text or "")))
         if not call:
+            if not (text or "").strip():
+                self.empty_replies += 1
             self.text_instead_of_call += 1
             return parse_choice(text or "", view)
         return parse_tool_call(call, view)
