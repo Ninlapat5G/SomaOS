@@ -33,7 +33,10 @@ from somaos.broker import (
 from somaos.broker.recall.machine import RecallMachine
 from somaos.broker.recall.prompting import (
     PromptedChooser,
+    ToolCallingChooser,
+    build_tools,
     parse_choice,
+    parse_tool_call,
     render_prompt,
 )
 
@@ -268,6 +271,128 @@ def test_the_fast_path_control_needs_no_model_at_all():
     assert soma.recall(Cue.about("incident", tick=60)).keys
 
 
+# ------------------------------------------------------------- Thai prompts
+
+def test_the_thai_prompt_has_the_same_shape_as_the_english_one():
+    """Only the wording changes, so a difference means the language did."""
+    view = a_view(build())
+    en = render_prompt(view, lang="en").splitlines()
+    th = render_prompt(view, lang="th").splitlines()
+    assert len(en) == len(th)
+    numbered = lambda lines: [l.strip().split(".")[0] for l in lines
+                              if l.strip()[:1].isdigit()]
+    assert numbered(en) == numbered(th)
+
+
+def test_the_thai_prompt_is_actually_thai():
+    text = render_prompt(a_view(build()), lang="th")
+    assert "ตัวเลือก:" in text and "หมายเลขไหน?" in text
+    assert "Options:" not in text and "Which number?" not in text
+
+
+def test_an_unknown_language_is_refused_before_the_run_starts():
+    with pytest.raises(ValueError, match="no prompt wording"):
+        render_prompt(a_view(build()), lang="fr")
+    with pytest.raises(ValueError):
+        PromptedChooser(lambda p: "1", lang="fr")
+
+
+@pytest.mark.parametrize("reply", ["๒", "ข้อ ๒", "2"])
+def test_thai_numerals_are_read_as_numbers(reply):
+    """A Thai-first model prompted in Thai sometimes answers in Thai digits.
+
+    Every one of those would otherwise arrive as an off-menu answer, and
+    the run would record a formatting quirk as a navigation failure.
+    """
+    view = a_view(build())
+    assert parse_choice(reply, view) is view["options"][1]
+
+
+@pytest.mark.parametrize("reply", ["หยุด", "พอแล้ว", "จบ"])
+def test_thai_stop_words_are_understood_as_a_whole_reply(reply):
+    view = a_view(build())
+    assert parse_choice(reply, view)["move"] == "stop"
+
+
+@pytest.mark.parametrize("reply", ["ไม่หยุด", "ยังไม่หยุด"])
+def test_a_thai_negation_is_not_read_as_a_decision_to_stop(reply):
+    """The "no idea" lesson in a language where the safe check does not exist.
+
+    Thai is written without spaces, so a word-boundary search is not
+    available and a substring search cannot tell "stop" from "do not
+    stop". Rather than approximate it, Thai stop words are matched only
+    as an entire reply -- so these fall through to being unparseable,
+    which is retried, instead of being recorded as a decision.
+    """
+    with pytest.raises(NavigationError):
+        parse_choice(reply, a_view(build()))
+
+
+# ------------------------------------------------------------- tool calling
+
+def test_the_tool_schema_offers_exactly_what_the_menu_offers():
+    view = a_view(build())
+    tools, = build_tools(view)
+    schema = tools["function"]["parameters"]["properties"]["option"]
+    assert schema["enum"] == list(range(1, len(view["options"]) + 1))
+    assert tools["function"]["parameters"]["additionalProperties"] is False
+
+
+def test_a_tool_call_resolves_to_the_option_it_names():
+    view = a_view(build())
+    call = {"function": {"name": "choose", "arguments": '{"option": 2}'}}
+    assert parse_tool_call(call, view) is view["options"][1]
+
+
+def test_tool_arguments_are_accepted_as_an_object_too():
+    """Not every client hands them back as a JSON string."""
+    view = a_view(build())
+    call = {"function": {"name": "choose", "arguments": {"option": 1}}}
+    assert parse_tool_call(call, view) is view["options"][0]
+
+
+@pytest.mark.parametrize("call", [
+    None,
+    {"function": {"name": "teleport", "arguments": "{}"}},
+    {"function": {"name": "choose", "arguments": "not json"}},
+    {"function": {"name": "choose", "arguments": '{"option": 99}'}},
+    {"function": {"name": "choose", "arguments": '{"reason": "unsure"}'}},
+])
+def test_a_bad_tool_call_is_refused_rather_than_guessed(call):
+    with pytest.raises(NavigationError):
+        parse_tool_call(call, a_view(build()))
+
+
+def test_a_model_that_answers_in_prose_instead_of_calling_is_still_read():
+    """Small models do this even with a tool offered.
+
+    Scoring them as unable to answer would measure the envelope rather
+    than the navigation -- but it is counted, because a model that
+    ignores the tool it was given is telling you how it will behave.
+    """
+    chooser = ToolCallingChooser(lambda prompt, tools: (None, "2"))
+    view = a_view(build())
+    assert chooser(view) is view["options"][1]
+    assert chooser.text_instead_of_call == 1
+
+
+def test_a_whole_recall_can_be_driven_by_tool_calls():
+    def call_tool(prompt, tools):
+        # The schema carries "N = label" per option, which is all a model
+        # gets too. Take a memory when one is on offer, otherwise move.
+        option = tools[0]["function"]["parameters"]["properties"]["option"]
+        picked = option["enum"][0]
+        for line in option["description"].splitlines():
+            if "Bring this memory to mind" in line:
+                picked = int(line.split("=")[0].strip())
+                break
+        return {"function": {"name": "choose",
+                             "arguments": json.dumps({"option": picked})}}, None
+
+    soma = build(navigator=CallableNavigator(ToolCallingChooser(call_tool)))
+    assert soma.recall(Cue.about("incident", tick=60)).keys
+
+
 # ------------------------------------------------------- over a real socket
 
 class _FakeEndpoint(BaseHTTPRequestHandler):
@@ -384,8 +509,14 @@ def test_an_endpoint_that_is_not_there_is_reported_not_swallowed():
 def test_an_endpoint_that_answers_with_nothing_usable_says_so():
     class _Empty(_FakeEndpoint):
         def do_POST(self):  # noqa: N802
+            # Drain the request first. Answering without reading the body
+            # makes Windows reset the connection, and the client then
+            # reports a transport failure instead of the empty reply this
+            # test is about.
+            self.rfile.read(int(self.headers["Content-Length"]))
             payload = json.dumps({"error": "model not found"}).encode("utf-8")
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)

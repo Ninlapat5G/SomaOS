@@ -282,6 +282,10 @@ class CallableNavigator:
         return (machine.path.ops_used, len(machine._materialized), machine._position)
 
     def drive(self, machine: RecallMachine, *, max_materialized: int = 8) -> RecallResult:
+        # GATHER enforces the ceiling inside the machine, so the machine
+        # has to be told the same number this loop is checking against or
+        # one move could buy more context than the other.
+        machine.max_materialized = max_materialized
         self.calls = 0
         self.stalls = 0
         self.off_menu = 0

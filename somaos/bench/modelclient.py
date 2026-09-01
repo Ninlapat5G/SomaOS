@@ -89,13 +89,45 @@ class ChatModel:
         self.calls = 0
 
     def complete(self, prompt: str) -> str:
-        body = json.dumps({
+        return self._extract(self._post({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-        }).encode("utf-8")
+        }))
 
+    def call_tool(self, prompt: str, tools: list[dict]) -> tuple[dict | None, str | None]:
+        """Ask the model to answer by calling one of ``tools``.
+
+        Returns ``(tool_call, text)``. Both can arrive: a model may call a
+        tool and narrate, and a small one may narrate instead of calling.
+        The caller decides what to do about that -- swallowing it here
+        would hide how the model actually behaves, which is part of what
+        an experiment about tool calling is measuring.
+
+        ``max_tokens`` is raised because a tool call is a JSON object
+        rather than a single digit, and one truncated halfway is
+        indistinguishable from a model that cannot call tools.
+        """
+        payload = self._post({
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": self.temperature,
+            "max_tokens": max(self.max_tokens, 128),
+            "tools": tools,
+            "tool_choice": "auto",
+        })
+        try:
+            message = payload["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ModelError(
+                f"endpoint replied with no message: {json.dumps(payload)[:200]}"
+            ) from exc
+        calls = message.get("tool_calls") or []
+        return (calls[0] if calls else None), message.get("content")
+
+    def _post(self, body: dict) -> dict:
+        data = json.dumps(body).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -103,7 +135,7 @@ class ChatModel:
         last: Exception | None = None
         for attempt in range(self.retries + 1):
             request = urllib.request.Request(
-                self.endpoint, data=body, headers=headers, method="POST"
+                self.endpoint, data=data, headers=headers, method="POST"
             )
             started = time.monotonic()
             try:
@@ -111,7 +143,7 @@ class ChatModel:
                     payload = json.loads(response.read().decode("utf-8"))
                 self.seconds += time.monotonic() - started
                 self.calls += 1
-                return self._extract(payload)
+                return payload
             except (urllib.error.URLError, TimeoutError, OSError,
                     json.JSONDecodeError) as exc:
                 self.seconds += time.monotonic() - started
@@ -159,6 +191,19 @@ class StubModel:
         self._index += 1
         return reply
 
+    def call_tool(self, prompt: str, tools: list[dict]) -> tuple[dict | None, str | None]:
+        """A scripted answer, read as a tool call when it is a dict.
+
+        Lets one stand-in script both paths: a dict is what a model that
+        called the tool would have returned, a string is what one that
+        answered in prose did, and the second case is worth being able to
+        script because small models do it.
+        """
+        answer = self.complete(prompt)
+        if isinstance(answer, dict):
+            return answer, None
+        return None, answer
+
     def __repr__(self) -> str:
         return f"StubModel(calls={self.calls})"
 
@@ -179,11 +224,18 @@ class RecordingModel:
     def complete(self, prompt: str) -> str:
         reply = self.inner.complete(prompt)
         self.calls += 1
-        self._handle.write(json.dumps(
-            {"prompt": prompt, "reply": reply}, ensure_ascii=False
-        ) + "\n")
-        self._handle.flush()
+        self._write({"prompt": prompt, "reply": reply})
         return reply
+
+    def call_tool(self, prompt: str, tools: list[dict]) -> tuple[dict | None, str | None]:
+        call, text = self.inner.call_tool(prompt, tools)
+        self.calls += 1
+        self._write({"prompt": prompt, "reply": text, "tool_call": call})
+        return call, text
+
+    def _write(self, row: dict) -> None:
+        self._handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        self._handle.flush()
 
     def close(self) -> None:
         self._handle.close()
@@ -220,6 +272,13 @@ class ReplayModel:
         self.mismatches = 0
 
     def complete(self, prompt: str) -> str:
+        return self._next(prompt)["reply"]
+
+    def call_tool(self, prompt: str, tools: list[dict]) -> tuple[dict | None, str | None]:
+        row = self._next(prompt)
+        return row.get("tool_call"), row.get("reply")
+
+    def _next(self, prompt: str) -> dict:
         if self._index >= len(self._rows):
             raise ModelError(
                 f"{self.path} holds {len(self._rows)} exchanges; the run asked "
@@ -236,7 +295,7 @@ class ReplayModel:
                     "prompt is not the one this run produced, so the reply "
                     "answers a different question"
                 )
-        return row["reply"]
+        return row
 
     def __repr__(self) -> str:
         return f"ReplayModel({self.path.name!r}, {len(self._rows)} exchanges)"

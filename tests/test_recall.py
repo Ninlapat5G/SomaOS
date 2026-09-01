@@ -243,6 +243,68 @@ def test_a_memory_already_in_mind_is_not_offered_again():
     assert Move.MATERIALIZE in machine.offer()
 
 
+# ------------------------------------------------------------------ gather
+
+def test_gather_is_not_offered_unless_it_is_switched_on():
+    """The control's numbers were all measured without it."""
+    machine = RecallMachine(_forest())
+    machine.begin(topics=("topic0",), tick=1)
+    assert Move.GATHER not in machine.offer()
+
+
+def test_gather_brings_back_several_and_finishes():
+    machine = RecallMachine(_forest(), allow_gather=True)
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.DESCEND)          # build a frontier to gather from
+    assert Move.GATHER in machine.offer()
+
+    machine.step(Move.GATHER)
+    result = machine.finish()
+    assert len(result.nodes) > 1, "one move should return more than one memory"
+    assert result.path.stopped_by == "gathered"
+
+
+def test_gather_respects_the_same_ceiling_as_taking_them_one_at_a_time():
+    """Otherwise it would be a way to buy context the slow route cannot."""
+    machine = RecallMachine(_forest(groups=4, per_group=8), allow_gather=True,
+                            max_materialized=3)
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.DESCEND)
+    machine.step(Move.GATHER)
+    assert len(machine.finish().nodes) <= 3
+
+
+def test_gather_costs_a_step():
+    """Choosing which candidates deserve the room is ranking work.
+
+    Free bulk pickup would end every walk the same way -- gather at the
+    entrance -- which is not navigation.
+    """
+    machine = RecallMachine(_forest(), allow_gather=True)
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.DESCEND)
+    before = machine.path.ops_used
+    machine.step(Move.GATHER)
+    assert machine.path.ops_used == before + 1
+
+
+def test_gather_never_brings_the_same_memory_back_twice():
+    machine = RecallMachine(_forest(), allow_gather=True)
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.MATERIALIZE)
+    machine.step(Move.DESCEND)
+    machine.step(Move.GATHER)
+    addrs = [node.addr for node in machine.finish().nodes]
+    assert len(addrs) == len(set(addrs))
+
+
+def test_gather_stops_being_offered_once_there_is_no_room():
+    machine = RecallMachine(_forest(), allow_gather=True, max_materialized=1)
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.MATERIALIZE)
+    assert Move.GATHER not in machine.offer()
+
+
 def test_lateral_moves_to_a_neighbour_on_the_frontier():
     tree = _forest()
     machine = RecallMachine(tree)

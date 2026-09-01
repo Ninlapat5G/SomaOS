@@ -53,7 +53,11 @@ from somaos.bench.modelclient import ChatModel, ReplayModel, RecordingModel, Stu
 from somaos.bench.score import Marker
 from somaos.broker.policies.life import Budgets, STree
 from somaos.broker.recall.navigator import CallableNavigator, FastPathNavigator
-from somaos.broker.recall.prompting import PromptedChooser, parse_choice
+from somaos.broker.recall.prompting import (
+    PromptedChooser,
+    ToolCallingChooser,
+    parse_choice,
+)
 
 #: "  3. Bring this memory to mind." -> "3"
 _OPTION_LINE = re.compile(r"^(\d{1,3})\.\s")
@@ -153,7 +157,7 @@ def _pricer(trace):
     return tokens_of
 
 
-def _run_one(seed: str, navigator, *, chooser=None) -> dict:
+def _run_one(seed: str, navigator, *, chooser=None, allow_gather: bool = False) -> dict:
     trace = generate(WorldConfig(n_ticks=TICKS, seed_root=seed))
     budgets = Budgets(store_bytes=STORE_BYTES, context_tokens=CONTEXT_TOKENS,
                       recall_ops=RECALL_OPS)
@@ -169,7 +173,7 @@ def _run_one(seed: str, navigator, *, chooser=None) -> dict:
         machine = RecallMachine(
             policy.tree, ops_budget=RECALL_OPS,
             context_budget_tokens=CONTEXT_TOKENS, beam=policy.beam,
-            tokens_of=policy.tokens_of,
+            tokens_of=policy.tokens_of, allow_gather=allow_gather,
         )
         machine.begin(topics=question.cue_topics, entities=question.cue_entities,
                       tick=question.tick, resident=policy.core.addresses())
@@ -236,19 +240,35 @@ class _Counting(CallableNavigator):
         return result
 
 
-def compare(model, *, seeds=SEEDS, on_error: str = "stop") -> dict:
-    """Run both policies over the same seeds and report both."""
+def compare(model, *, seeds=SEEDS, on_error: str = "stop",
+            lang: str = "en", tools: bool = False,
+            allow_gather: bool = False) -> dict:
+    """Run both policies over the same seeds and report both.
+
+    ``lang``, ``tools`` and ``allow_gather`` vary only the agent side. The
+    fast path is the control and is measured the same way every time, so
+    a variant that moves it would be changing the yardstick along with
+    the thing being measured.
+    """
     fast_rows, agent_rows = [], []
 
     for seed in seeds:
-        fast_rows.append(_run_one(seed, FastPathNavigator()))
+        fast_rows.append(_run_one(seed, FastPathNavigator(),
+                                  allow_gather=allow_gather))
 
     for seed in seeds:
-        chooser = PromptedChooser(model.complete, keep_transcript=False)
+        if tools:
+            chooser = ToolCallingChooser(model.call_tool, keep_transcript=False,
+                                         lang=lang)
+        else:
+            chooser = PromptedChooser(model.complete, keep_transcript=False,
+                                      lang=lang)
         navigator = _Counting(chooser, on_error=on_error)
-        agent_rows.append(_run_one(seed, navigator, chooser=chooser))
+        agent_rows.append(_run_one(seed, navigator, chooser=chooser,
+                                   allow_gather=allow_gather))
 
-    return {"fast_path": fast_rows, "agent_directed": agent_rows}
+    return {"fast_path": fast_rows, "agent_directed": agent_rows,
+            "variant": {"lang": lang, "tools": tools, "gather": allow_gather}}
 
 
 def _mean(rows: list[dict], key: str) -> float:
@@ -300,6 +320,12 @@ def main(argv=None) -> int:
     parser.add_argument("--replay", help="replay a recorded transcript instead")
     parser.add_argument("--on-error", default="stop", choices=("stop", "raise"))
     parser.add_argument("--seeds", default=",".join(SEEDS))
+    parser.add_argument("--lang", default="en", choices=("en", "th"),
+                        help="language of the prompt shown to the model")
+    parser.add_argument("--tools", action="store_true",
+                        help="let the model answer by calling a function")
+    parser.add_argument("--gather", action="store_true",
+                        help="offer the bulk pickup the fast path gets for free")
     args = parser.parse_args(argv)
 
     seeds = tuple(s.strip() for s in args.seeds.split(",") if s.strip())
@@ -316,7 +342,9 @@ def main(argv=None) -> int:
 
     recorder = RecordingModel(model, args.record) if args.record else None
     try:
-        comparison = compare(recorder or model, seeds=seeds, on_error=args.on_error)
+        comparison = compare(recorder or model, seeds=seeds,
+                             on_error=args.on_error, lang=args.lang,
+                             tools=args.tools, allow_gather=args.gather)
     finally:
         if recorder is not None:
             recorder.close()

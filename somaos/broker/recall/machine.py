@@ -58,6 +58,7 @@ class Move(Enum):
     ASCEND = "ascend"            # toward gist
     LATERAL = "lateral"          # to a neighbour of the current node
     MATERIALIZE = "materialize"  # bring it into context, paying tokens
+    GATHER = "gather"            # bring the best in view to mind, and finish
     STOP = "stop"
 
 
@@ -146,12 +147,25 @@ class RecallMachine:
         context_budget_tokens: int = 2048,
         beam: int | None = None,
         tokens_of: Callable[[MemoryNode], int] = structural_tokens,
+        max_materialized: int = 8,
+        allow_gather: bool = False,
     ) -> None:
         self.tree = tree
         self.ops_budget = ops_budget
         self.context_budget_tokens = context_budget_tokens
         self.beam = beam if beam is not None else tree.beam
         self.tokens_of = tokens_of
+        #: How many memories a walk may bring to mind. Held here rather
+        #: than only on the caller because GATHER has to respect the same
+        #: ceiling the one-at-a-time route does, or it would be a way to
+        #: buy context that single materialise cannot.
+        self.max_materialized = max_materialized
+        #: Off by default, and deliberately. The fast path ends by
+        #: materialising its best eight in one go, while an agent must ask
+        #: for each -- one model call apiece. GATHER closes that gap, and
+        #: closing it changes what the comparison is asking, so it is a
+        #: measured variant rather than a silent change to the control.
+        self.allow_gather = allow_gather
 
         self.state = RecallState.IDLE
         self.path = WalkPath()
@@ -313,6 +327,8 @@ class RecallMachine:
             # keep taking it, since nothing in the menu says it is spent.
             if self._position not in self._materialized:
                 moves.append(Move.MATERIALIZE)
+            if self.allow_gather and self._gatherable():
+                moves.append(Move.GATHER)
             if self.tree.children_of(self._position):
                 moves.append(Move.DESCEND)
             if self.tree.get(self._position).parent is not None:
@@ -334,6 +350,8 @@ class RecallMachine:
 
         if move is Move.MATERIALIZE:
             return self._materialize(addr or self._position)
+        if move is Move.GATHER:
+            return self._gather()
         if move is Move.DESCEND:
             return self._descend(addr)
         if move is Move.ASCEND:
@@ -473,9 +491,65 @@ class RecallMachine:
         )
         return self.state
 
+    def _candidates(self) -> list[tuple[str, float]]:
+        """What is in view right now, best first, minus what is in mind.
+
+        Scores come from the frontier the walk already built. Nothing here
+        computes a similarity: a menu that priced itself in vector
+        comparisons would charge the agent for reading its own options,
+        and the N-08 count would drift away from the work actually done.
+        The current position sorts first because standing somewhere is a
+        decision the walk already paid an op for.
+        """
+        pool: dict[str, float] = {}
+        for addr, score in self._frontier:
+            pool.setdefault(addr, score)
+        if self._position is not None:
+            pool[self._position] = float("inf")
+        return sorted(
+            ((addr, score) for addr, score in pool.items()
+             if addr not in self._materialized),
+            key=lambda pair: (-pair[1], pair[0]),
+        )
+
+    def _gatherable(self) -> bool:
+        return (len(self._materialized) < self.max_materialized
+                and bool(self._candidates()))
+
+    def _gather(self) -> RecallState:
+        """Bring the best memories in view to mind, then finish.
+
+        What the fast path does at the end of its search, offered as one
+        move. Without it the comparison charges the agent a model call per
+        memory while the control takes eight for nothing, and that gap is
+        a property of the harness rather than of either strategy.
+
+        Costs one op. Bringing a single memory to mind is free because it
+        is only a copy into context, but choosing which of the candidates
+        deserve the room is the ranking work an op pays for -- and free
+        bulk pickup would make every walk end the same way.
+        """
+        self.path.ops_used += 1
+        taken = 0
+        for addr, _ in self._candidates():
+            if len(self._materialized) >= self.max_materialized:
+                break
+            if self.state not in (RecallState.NAVIGATE, RecallState.RESIDENT):
+                break  # the context budget refused one and stopped the walk
+            before = len(self._materialized)
+            self._materialize(addr)
+            taken += len(self._materialized) - before
+        self.path.steps.append(
+            WalkStep(Move.GATHER, self._position, 0.0, self.path.ops_used,
+                     note=f"gathered {taken}")
+        )
+        if self.state in (RecallState.NAVIGATE, RecallState.RESIDENT):
+            return self._stop("gathered")
+        return self.state
+
     # ------------------------------------------------------------ fast path
 
-    def run_fast_path(self, *, max_materialized: int = 8) -> RecallResult:
+    def run_fast_path(self, *, max_materialized: int | None = None) -> RecallResult:
         """Walk without asking anyone: best-first, with backtracking.
 
         This is what runs when the model is not consulted and what still
@@ -496,6 +570,8 @@ class RecallMachine:
         stops producing high scores, and the search returns to the best
         unexplored candidate anywhere it has been.
         """
+        if max_materialized is None:
+            max_materialized = self.max_materialized
         seen: dict[str, float] = {}
         frontier: list[tuple[float, str]] = []
 
