@@ -7,10 +7,15 @@ was never exercised.
 from __future__ import annotations
 
 import json
+import re
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
 from somaos.bench.modelclient import (
+    ChatModel,
     ModelError,
     RecordingModel,
     ReplayModel,
@@ -261,3 +266,121 @@ def test_the_offline_comparison_produces_a_real_verdict():
 def test_the_fast_path_control_needs_no_model_at_all():
     soma = build(navigator=FastPathNavigator())
     assert soma.recall(Cue.about("incident", tick=60)).keys
+
+
+# ------------------------------------------------------- over a real socket
+
+class _FakeEndpoint(BaseHTTPRequestHandler):
+    """The smallest thing that answers like ollama, llama.cpp or vLLM.
+
+    Everything above this line reaches the model through a callable, which
+    is what makes the harness testable but also means the one part that
+    cannot be exercised that way -- the HTTP request itself -- is the part
+    a real endpoint arriving would exercise first. So it is served here
+    instead: same wire format, over a real loopback socket, in-process.
+    """
+
+    def answer(self, prompt: str) -> str:
+        """Cycle through whatever the menu offered.
+
+        Fixed on a number it is not: a chooser that always says "2" meets
+        a position with one option and is off the menu through no fault of
+        the transport, which is not what these tests are asking about.
+        """
+        options = [int(n) for n in re.findall(r"^\s*(\d+)\.", prompt, re.M)]
+        if not options:
+            return "stop"
+        return str(options[len(self.server.seen) % len(options)])
+
+    def do_POST(self):  # noqa: N802 - stdlib naming
+        if not self.path.endswith("/chat/completions"):
+            self.send_error(404)
+            return
+        body = json.loads(
+            self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8")
+        )
+        reply = self.answer(body["messages"][0]["content"])
+        self.server.seen.append((body, dict(self.headers)))
+        payload = json.dumps({
+            "choices": [{"message": {"role": "assistant", "content": reply}}],
+        }).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args):
+        pass
+
+
+@contextmanager
+def _serving(handler=_FakeEndpoint):
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    server.seen = []
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server, f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_a_base_url_becomes_the_chat_completions_path():
+    """Every endpoint is handed over as a base URL, not the full path."""
+    assert ChatModel("http://host:11434", model="m").endpoint == (
+        "http://host:11434/v1/chat/completions"
+    )
+    assert ChatModel("http://host:11434/", model="m").endpoint == (
+        "http://host:11434/v1/chat/completions"
+    )
+    already = "http://host:8000/v1/chat/completions"
+    assert ChatModel(already, model="m").endpoint == already
+
+
+def test_the_client_actually_speaks_to_an_endpoint():
+    menu = "Options:\n  1. Bring this memory to mind.\n  2. Stop\n\nWhich number?"
+    with _serving() as (server, base):
+        model = ChatModel(base, model="gemma3:4b", api_key="sk-test")
+        assert model.complete(menu) == "1"
+
+    body, headers = server.seen[0]
+    assert body["model"] == "gemma3:4b"
+    assert body["messages"] == [{"role": "user", "content": menu}]
+    assert body["temperature"] == 0.0, "a walk at temperature must be repeatable"
+    assert headers["Authorization"] == "Bearer sk-test"
+    assert model.calls == 1
+    assert model.seconds > 0.0, "the cost of the call has to be visible"
+
+
+def test_a_whole_recall_can_be_driven_over_http():
+    """The glue end to end: socket, parser, machine, answer."""
+    with _serving() as (_, base):
+        model = ChatModel(base, model="gemma3:4b")
+        soma = build(navigator=CallableNavigator(PromptedChooser(model.complete)))
+        found = soma.recall(Cue.about("incident", tick=60))
+
+    assert model.calls > 1, "the model was consulted more than once"
+    assert found.keys, "a walk driven over HTTP returned nothing"
+
+
+def test_an_endpoint_that_is_not_there_is_reported_not_swallowed():
+    model = ChatModel("http://127.0.0.1:9", model="m", retries=0, timeout=2.0)
+    with pytest.raises(ModelError, match="did not answer"):
+        model.complete("hello")
+
+
+def test_an_endpoint_that_answers_with_nothing_usable_says_so():
+    class _Empty(_FakeEndpoint):
+        def do_POST(self):  # noqa: N802
+            payload = json.dumps({"error": "model not found"}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    with _serving(_Empty) as (_, base):
+        with pytest.raises(ModelError, match="no message content"):
+            ChatModel(base, model="m", retries=0).complete("hello")

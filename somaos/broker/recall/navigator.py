@@ -328,7 +328,11 @@ class CallableNavigator:
                     machine.step(Move.STOP)
                     machine.path.stopped_by = failure
                     break
-                self.recovered += 1
+                # No credit here: _consult was given a ``reason``, so it
+                # already counted the correction. Crediting again scored
+                # one correction as two recoveries, which is the wrong way
+                # for this counter to be wrong -- it reads as a model that
+                # takes correction better than it does.
                 try:
                     machine.step(move, addr=addr)
                 except Exception:

@@ -1,7 +1,7 @@
 # 07_LLM_HARNESS.md — พร้อมต่อ LLM แล้ว
 
-> **สถานะ:** ทำเสร็จและทดสอบครบ **ยังไม่เคยต่อโมเดลจริง**
-> **ทดสอบ:** `tests/test_llm_harness.py` (40 ข้อ) · รวมทั้งโปรเจกต์ 672 ข้อ
+> **สถานะ:** ทำเสร็จและทดสอบครบ **ยังไม่เคยต่อโมเดลจริง** — แต่ **ทางเดิน HTTP ถูกวิ่งจริงแล้ว**
+> **ทดสอบ:** `tests/test_llm_harness.py` (45 ข้อ) · รวมทั้งโปรเจกต์ 678 ข้อ
 > **ทุกอย่างรันได้แบบไม่ต้องมี endpoint** — พอ endpoint มา ถ้าผลออกมาแย่
 > จะได้แปลว่า *โมเดลแย่* ไม่ใช่ *กาวไม่เคยถูกลอง*
 
@@ -81,6 +81,32 @@ Which number?
 **การทดลองที่ถามว่า "โมเดลนำทางเก่งไหม" จะนับความสับสนเป็นความเด็ดขาด**
 แก้เป็นแยกสองชุด: คำกริยา (`stop`/`done`/`finish`) หาได้ทั้งประโยค ส่วน `no`/`none`/`nothing`
 ต้องเป็นคำตอบทั้งอันเท่านั้น
+
+---
+
+## 3.5 ทางเดิน HTTP — วิ่งจริงแล้ว ไม่ใช่แค่ผ่าน stub
+
+ทุก test ก่อนหน้านี้เข้าถึงโมเดลผ่าน callable (`StubModel`) ซึ่งเป็นสิ่งที่ทำให้ harness ทดสอบได้
+แต่ก็แปลว่า**ชิ้นเดียวที่วิธีนั้นแตะไม่ถึงคือ HTTP request เอง** — ซึ่งเป็นชิ้นแรกที่ endpoint จริงจะเจอ
+ตอนนี้จึงมี `http.server` ของ stdlib ตอบด้วย wire format เดียวกัน วิ่งผ่าน loopback socket จริงใน process:
+
+| ตรวจอะไร | test |
+|---|---|
+| base URL → `/v1/chat/completions` (มี/ไม่มี `/` ท้าย, ส่ง path เต็มมาแล้ว) | `test_a_base_url_becomes_the_chat_completions_path` |
+| body ถูกต้อง · `temperature=0` · `Authorization: Bearer` · นับ `calls`/`seconds` | `test_the_client_actually_speaks_to_an_endpoint` |
+| การนึกทั้งครั้งขับผ่าน socket จริงได้ | `test_a_whole_recall_can_be_driven_over_http` |
+| endpoint ไม่มีอยู่ → `ModelError` ไม่ใช่กลืนเงียบ | `test_an_endpoint_that_is_not_there_is_reported_not_swallowed` |
+| endpoint ตอบ 200 แต่ไม่มี content (เช่น model not found) → บอกตรง ๆ | `test_an_endpoint_that_answers_with_nothing_usable_says_so` |
+
+**บั๊กที่เจอตอนวิ่งของจริงผ่าน endpoint ปลอมทั้งการทดลอง:** `recovered` ถูกนับ **สองครั้ง**
+ในเส้นทาง "โมเดลแต่ง address ขึ้นมาเอง" — `_consult()` เครดิตให้ตอนที่ถูกเรียกพร้อม `reason`
+แล้ว caller เครดิตซ้ำอีกที ผลคือรายงานว่าแก้ตัวสำเร็จ 2 ครั้งจากความผิด 1 ครั้ง
+(เห็นชัดตอนรันจริง: `off_menu` 28.3 แต่ `recovered` 56.7)
+
+เส้นทางนี้ต่างจาก "ตอบท่าที่ไม่มีอยู่" ตรงที่**คำตอบ parse ผ่าน** มีแต่ machine ที่ปฏิเสธทีหลังหนึ่งชั้น
+จึงไม่มี test ตัวไหนคุมอยู่เลย แก้แล้ว + `test_an_invented_address_is_one_mistake_and_one_recovery`
+คุมไว้ **ตัวนับนี้สำคัญเพราะมันคือคำตอบว่า "โมเดลตัวนี้ใช้กับ retry ได้ไหม"** — นับเกินคือรายงานว่า
+โมเดลรับคำแก้ได้ดีกว่าความจริง
 
 ---
 

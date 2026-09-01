@@ -460,6 +460,35 @@ def test_a_chooser_gets_a_second_chance_after_a_malformed_answer():
     assert result.path["stopped_by"] != "chooser went off menu"
 
 
+def test_an_invented_address_is_one_mistake_and_one_recovery():
+    """A model that names a plausible-looking address that does not exist.
+
+    Different from a malformed move: the answer parses, so it is only the
+    machine that refuses it, one layer later. It has to be counted the
+    same way -- once wrong, once corrected -- because ``off_menu`` and
+    ``recovered`` are how a model-in-the-loop run reports whether the
+    model can be used with retries, and a counter that reports two
+    recoveries for one correction overstates exactly that.
+    """
+    calls = {"n": 0}
+
+    def invent_once(view):
+        calls["n"] += 1
+        kids = [o for o in view["options"] if o["move"] == "descend"]
+        if not kids:
+            return {"move": "stop"}
+        if calls["n"] == 1:
+            return {"move": "descend", "addr": "addr:" + "0" * 64}
+        return kids[0]
+
+    nav = CallableNavigator(invent_once)
+    soma = build(days=30, navigator=nav)
+    result = soma.recall(Cue.about("routine", tick=30))
+    assert nav.off_menu == 1
+    assert nav.recovered == 1
+    assert result.path["stopped_by"] != "chooser went off menu"
+
+
 def test_retries_are_bounded():
     nav = CallableNavigator(lambda view: {"move": "teleport"}, max_retries=2)
     soma = build(days=30, navigator=nav)

@@ -1,6 +1,8 @@
 # plan.md — แผนงานและสถานะ
 
-> อัปเดตล่าสุด: 2026-08-28 — **Phase 0b: A0–A11 เสร็จ · 552 tests · วัดครบ 3 เส้นโค้งบน dev seeds แล้ว**
+> อัปเดตล่าสุด: 2026-09-01 — **Phase 0b: A0–A11 + module API + LLM harness เสร็จ · 678 tests**
+> **ทางเดินไปหา LLM พร้อมแล้วทั้งเส้น** (HTTP วิ่งจริงผ่าน socket แล้ว ดู `plans/07_LLM_HARNESS.md` §3.5)
+> เหลือ **A12 → A13** ซึ่งเป็นการตัดสิน Phase 0b และ **KC3 ต้องเคาะก่อน A12**
 > 📄 สรุปสถาปัตยกรรมสำหรับตรวจงาน: https://claude.ai/code/artifact/fb680222-48a4-4c3f-8c17-d7a6331deb47
 > ดีไซน์เก่า (surprise-gated encoding) ถูกยกเลิก — ผลการวัดเก็บที่ `plans/ARCHIVE_PHASE0_RESULT.md`
 
@@ -82,8 +84,14 @@ Phase 0 รอบแรกทดสอบกลไกที่ **ขัดกั
 | **A9** | โลกใหม่ query 4 ระดับ (`bench/lifeworld.py`) | detail/gist/habit/trigger | ✅ |
 | **A10** | ให้คะแนน detail/gist แยกกัน (`bench/score.py`) | วัดกับ ground truth ที่ bench ถือเอง | ✅ |
 | **A11** | `B2c` + arena runner (`bench/arena.py`) | การแข่งยุติธรรมเป็นครั้งแรก | ✅ |
+| — | module API (`broker/soma.py`, `persistence.py`) | แอปใช้เป็น module ได้ · โหลดกลับมายังเป็นตัวเดิม | ✅ `06_MODULE_API.md` |
+| — | LLM harness (`recall/prompting.py`, `bench/modelclient.py`) | ต่อ endpoint ได้ทันที · HTTP วิ่งจริงแล้ว | ✅ `07_LLM_HARNESS.md` |
 | **A12** | pre-register KC1–KC5 + แบ่ง seed ชุดใหม่ | ประกาศเกณฑ์ก่อนเห็นผล | ⬜ |
 | **A13** | รันเต็มสเกล วัด holdout ครั้งเดียว | เส้นโค้ง M1–M3 | ⬜ |
+
+> ⚠️ **`somaos/bench/gate.py` ยังเป็นของ v1 ทั้งไฟล์** — ยังเป็น `KC1..KC4` แบบเก่า และยังมี
+> `DIAGNOSTIC_REGIMES = {"surprise_driven"}` ของดีไซน์ที่ยกเลิกไปแล้ว **KC1–KC5 ใหม่ (§7.4) ยังไม่มีโค้ด**
+> และยังไม่มี config `phase0b.json` — นี่คือเนื้องานของ A12 ทั้งหมด
 
 **ลำดับที่เหลือ:** A12 → A13
 (A12 ต้องเสร็จ **ก่อน** A13 เสมอ — ประกาศเกณฑ์ก่อนเห็นผล ห้ามสลับ)
