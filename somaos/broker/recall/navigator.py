@@ -135,7 +135,12 @@ def options(machine: RecallMachine, *, reveal_text: bool = True) -> tuple[Choice
 
     out: list[Choice] = []
     for move in legal:
-        if move in (Move.STOP, Move.MATERIALIZE):
+        # Moves that name no destination. Anything legal must appear here
+        # or the chooser cannot reach it, and a move offered by the
+        # machine but missing from the menu fails silently -- the walk
+        # simply never takes it. ``test_every_legal_move_reaches_the_menu``
+        # is what keeps the next move added from landing that way.
+        if move in (Move.STOP, Move.MATERIALIZE, Move.GATHER):
             out.append(Choice(move))
             continue
         if move is Move.DESCEND and machine._position is not None:

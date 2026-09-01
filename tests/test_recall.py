@@ -252,6 +252,26 @@ def test_gather_is_not_offered_unless_it_is_switched_on():
     assert Move.GATHER not in machine.offer()
 
 
+def test_every_legal_move_reaches_the_menu():
+    """A move the machine offers but the menu omits fails silently.
+
+    The walk simply never takes it, no error is raised, and an experiment
+    measuring that move measures nothing at all -- which is how GATHER
+    was first run. Checked across a walk rather than at one position, so
+    a move that only becomes legal partway through is covered too.
+    """
+    from somaos.broker.recall.navigator import options
+
+    machine = RecallMachine(_forest(), allow_gather=True)
+    machine.begin(topics=("topic0",), tick=1)
+    for move in (Move.MATERIALIZE, Move.DESCEND, Move.LATERAL, Move.ASCEND):
+        offered = set(machine.offer())
+        shown = {choice.move for choice in options(machine)}
+        assert offered == shown, f"offered but not shown: {offered - shown}"
+        if move in offered:
+            machine.step(move)
+
+
 def test_gather_brings_back_several_and_finishes():
     machine = RecallMachine(_forest(), allow_gather=True)
     machine.begin(topics=("topic0",), tick=1)
