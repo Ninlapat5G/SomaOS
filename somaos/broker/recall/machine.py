@@ -306,7 +306,13 @@ class RecallMachine:
             return (Move.STOP,)
         moves = [Move.STOP]
         if self._position is not None:
-            moves.append(Move.MATERIALIZE)
+            # Gated like every other move, on whether it can do anything.
+            # _materialize() already returns untouched when the memory is
+            # in context, so offering it there advertises a no-op -- and a
+            # chooser told that bringing a memory to mind is free will
+            # keep taking it, since nothing in the menu says it is spent.
+            if self._position not in self._materialized:
+                moves.append(Move.MATERIALIZE)
             if self.tree.children_of(self._position):
                 moves.append(Move.DESCEND)
             if self.tree.get(self._position).parent is not None:

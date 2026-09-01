@@ -308,12 +308,49 @@ def test_hiding_text_hides_it_from_the_chooser():
 
 
 def test_a_chooser_that_stalls_is_stopped():
-    """Materialising the same memory twice is legal and does nothing."""
-    nav = CallableNavigator(lambda view: {"move": "materialize"})
+    """A legal move that achieves nothing, taken over and over.
+
+    The menu no longer offers to bring a memory to mind twice, so the way
+    to do nothing legally is to name an address that is already in
+    context -- which ``offer()`` cannot gate, because it gates the move
+    and not the argument.
+    """
+    seen: list[str] = []
+
+    def keep_naming_the_one_already_taken(view):
+        if not seen:
+            seen.append(view["here"]["addr"])
+            return {"move": "materialize"}
+        # Stand somewhere new, so the move itself stays legal, then keep
+        # asking for the memory that is already in context.
+        if len(seen) == 1:
+            kids = [o for o in view["options"] if o["move"] == "descend"]
+            if kids:
+                seen.append("moved")
+                return kids[0]
+        return {"move": "materialize", "addr": seen[0]}
+
+    nav = CallableNavigator(keep_naming_the_one_already_taken)
     soma = build(days=30, navigator=nav)
     result = soma.recall(Cue.about("routine", tick=30))
     assert nav.stalls >= 1
     assert result.path["stopped_by"] == "chooser stalled"
+
+
+def test_a_chooser_that_repeats_itself_is_corrected_not_stalled():
+    """The case a real model actually falls into.
+
+    Told that bringing a memory to mind is free, a model brings the one
+    it is standing on to mind -- and, shown a menu that still offers it,
+    does so again. It used to burn the stall allowance in silence. Now it
+    is off the menu, so the chooser is told why and gets to pick again.
+    """
+    nav = CallableNavigator(lambda view: {"move": "materialize"})
+    soma = build(days=30, navigator=nav)
+    result = soma.recall(Cue.about("routine", tick=30))
+    assert nav.off_menu >= 1
+    assert nav.stalls == 0
+    assert result.keys, "the memory it did bring to mind has to survive"
 
 
 def test_a_chooser_that_invents_a_move_degrades_instead_of_losing_the_memory():

@@ -63,9 +63,17 @@ class ChatModel:
         timeout: float = DEFAULT_TIMEOUT,
         retries: int = DEFAULT_RETRIES,
     ) -> None:
+        # Hosts hand out their base URL in three shapes and all three
+        # have to land on the same path. A local ollama is given as a bare
+        # host, a hosted service usually as one already ending in /v1 --
+        # blindly appending /v1/chat/completions to the second produces
+        # /v1/v1/chat/completions, which fails as a 404 at the first call
+        # of an experiment rather than as anything that names the cause.
         self.endpoint = endpoint.rstrip("/")
         if not self.endpoint.endswith("/chat/completions"):
-            self.endpoint = f"{self.endpoint}/v1/chat/completions"
+            suffix = "/chat/completions" if self.endpoint.endswith("/v1") \
+                else "/v1/chat/completions"
+            self.endpoint = f"{self.endpoint}{suffix}"
         self.model = model
         self.api_key = api_key
         self.temperature = temperature

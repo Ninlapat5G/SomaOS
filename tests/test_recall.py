@@ -187,13 +187,60 @@ def test_when_ops_run_out_only_stop_is_offered():
 
 
 def test_materializing_the_same_memory_twice_is_free_and_harmless():
+    """The guard stays even though the menu no longer leads here.
+
+    ``run_fast_path`` materialises by address without going through
+    ``offer()``, so a caller naming a memory that is already in context
+    has to keep meeting a no-op rather than an error.
+    """
     tree = _forest()
     machine = RecallMachine(tree)
     machine.begin(topics=("topic0",), tick=1)
     machine.step(Move.MATERIALIZE)
-    machine.step(Move.MATERIALIZE)
+    here = machine._materialized[0]
+    machine.step(Move.DESCEND)
+    machine.step(Move.MATERIALIZE, addr=here)
     result = machine.finish()
     assert len(result.nodes) == 1
+
+
+def test_a_memory_already_in_mind_is_refused_through_the_menu():
+    """What a chooser meets is an illegal move, not a silent nothing.
+
+    Better than the no-op it replaces: the navigator shows the reason and
+    asks again, so a chooser that repeats itself is corrected instead of
+    quietly burning its stall allowance.
+    """
+    machine = RecallMachine(_forest())
+    machine.begin(topics=("topic0",), tick=1)
+    machine.step(Move.MATERIALIZE)
+    with pytest.raises(IllegalMove):
+        machine.step(Move.MATERIALIZE)
+
+
+def test_a_memory_already_in_mind_is_not_offered_again():
+    """Every other move is offered only where it can do something.
+
+    Descend needs children, ascend needs a parent, lateral needs a
+    frontier -- and materialise was the one exception, offered at a
+    position whose memory is already in context, where the machine
+    quietly does nothing. A chooser cannot see that from the menu. Told
+    that bringing a memory to mind is free and worth doing, it does the
+    free and worthwhile thing, is shown the same menu again, and does it
+    again until the walk is ended for stalling. The menu has to stop
+    offering the move rather than the chooser having to remember it.
+    """
+    machine = RecallMachine(_forest())
+    machine.begin(topics=("topic0",), tick=1)
+    assert Move.MATERIALIZE in machine.offer()
+
+    machine.step(Move.MATERIALIZE)
+    assert Move.MATERIALIZE not in machine.offer(), \
+        "the menu offered a move that would change nothing"
+
+    # And it comes back the moment the walk stands somewhere new.
+    machine.step(Move.DESCEND)
+    assert Move.MATERIALIZE in machine.offer()
 
 
 def test_lateral_moves_to_a_neighbour_on_the_frontier():

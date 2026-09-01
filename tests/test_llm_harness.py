@@ -328,16 +328,25 @@ def _serving(handler=_FakeEndpoint):
         thread.join(timeout=5)
 
 
-def test_a_base_url_becomes_the_chat_completions_path():
-    """Every endpoint is handed over as a base URL, not the full path."""
-    assert ChatModel("http://host:11434", model="m").endpoint == (
-        "http://host:11434/v1/chat/completions"
-    )
-    assert ChatModel("http://host:11434/", model="m").endpoint == (
-        "http://host:11434/v1/chat/completions"
-    )
-    already = "http://host:8000/v1/chat/completions"
-    assert ChatModel(already, model="m").endpoint == already
+@pytest.mark.parametrize("given, wanted", [
+    # A local runner, given as a bare host.
+    ("http://host:11434", "http://host:11434/v1/chat/completions"),
+    ("http://host:11434/", "http://host:11434/v1/chat/completions"),
+    # A hosted service, whose documented base_url already carries /v1.
+    ("https://api.opentyphoon.ai/v1", "https://api.opentyphoon.ai/v1/chat/completions"),
+    ("https://api.opentyphoon.ai/v1/", "https://api.opentyphoon.ai/v1/chat/completions"),
+    # The full path, handed over as-is.
+    ("http://host:8000/v1/chat/completions", "http://host:8000/v1/chat/completions"),
+])
+def test_a_base_url_becomes_the_chat_completions_path(given, wanted):
+    """All three shapes a host publishes its URL in reach the same path.
+
+    The /v1 case is not hypothetical: it is how every hosted
+    OpenAI-compatible service documents itself, and doubling it produces a
+    404 on the first call of a run -- an hour into a model experiment, in
+    a message that names the URL but not the mistake.
+    """
+    assert ChatModel(given, model="m").endpoint == wanted
 
 
 def test_the_client_actually_speaks_to_an_endpoint():
