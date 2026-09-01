@@ -252,6 +252,46 @@ def test_gather_is_not_offered_unless_it_is_switched_on():
     assert Move.GATHER not in machine.offer()
 
 
+def test_the_neighbours_offered_are_the_ones_lateral_will_accept():
+    """The menu and the move have to agree on what a neighbour is.
+
+    ``options()`` assumed the walk stands on ``_frontier[0]`` and offered
+    the rest. That held only while DESCEND always took the top-ranked
+    child; once the agent's own pick was honoured, standing anywhere else
+    put the current position back on the menu as somewhere to go -- and
+    LATERAL, which excludes the position properly, refused it.
+
+    The shape of the bug is what matters: it fires only for a chooser
+    that exercises judgement. One that always takes the first child never
+    sees it, so the scripted stand-in walked past it every run while a
+    real model paid for disagreeing with the ranking.
+    """
+    from somaos.broker.recall.navigator import describe
+
+    machine = RecallMachine(_forest(groups=3, per_group=6))
+    machine.begin(topics=("topic0",), tick=1)
+    children = [o for o in describe(machine)["options"] if o["move"] == "descend"]
+    assert len(children) > 1, "need a real choice for this to mean anything"
+
+    machine.step(Move.DESCEND, addr=children[-1]["addr"])  # not the top-ranked one
+    offered = [o["addr"] for o in describe(machine)["options"]
+               if o["move"] == "lateral"]
+    assert machine._position not in offered, "offered to move to where it stands"
+
+
+def test_every_neighbour_on_the_menu_can_actually_be_taken():
+    machine = RecallMachine(_forest(groups=3, per_group=6))
+    machine.begin(topics=("topic0",), tick=1)
+    from somaos.broker.recall.navigator import describe
+
+    children = [o for o in describe(machine)["options"] if o["move"] == "descend"]
+    machine.step(Move.DESCEND, addr=children[-1]["addr"])
+    for option in describe(machine)["options"]:
+        if option["move"] == "lateral":
+            machine.step(Move.LATERAL, addr=option["addr"])  # must not raise
+            break
+
+
 def test_every_legal_move_reaches_the_menu():
     """A move the machine offers but the menu omits fails silently.
 

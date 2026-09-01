@@ -160,7 +160,17 @@ def options(machine: RecallMachine, *, reveal_text: bool = True) -> tuple[Choice
             out.append(Choice(move))
             continue
         if move is Move.LATERAL:
-            for addr, score in machine._frontier[1:]:
+            # Everything on the frontier except where the walk stands --
+            # the same set _lateral() will accept. Slicing off the first
+            # entry instead assumed the position was _frontier[0], which
+            # stopped being true when DESCEND began honouring the child
+            # the agent named rather than the top-ranked one. The current
+            # memory was then offered as somewhere to go and refused on
+            # arrival, and only a chooser that disagrees with the ranking
+            # could ever see it.
+            for addr, score in machine._frontier:
+                if addr == machine._position:
+                    continue
                 node = machine.tree.get(addr)
                 out.append(Choice(
                     move, addr=addr, score=score,
